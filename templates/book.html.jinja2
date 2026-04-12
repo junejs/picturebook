@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="{{ book.language }}">
+  <head>
+    <meta charset="utf-8">
+    <title>{{ book.title }}</title>
+    <style>
+      @page {
+        size: {{ page_size_css }};
+        margin: 0;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html, body {
+        margin: 0;
+        padding: 0;
+        font-family: "{{ render.body_font }}", sans-serif;
+        background: #f5efe3;
+        color: #1b140f;
+      }
+
+      body {
+        counter-reset: story-page;
+      }
+
+      .sheet {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        break-after: page;
+        overflow: hidden;
+        background:
+          radial-gradient(circle at top left, rgba(255,255,255,0.8), transparent 38%),
+          linear-gradient(180deg, #f6efe1 0%, #ecd9b8 100%);
+      }
+
+      .cover {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 12mm;
+      }
+
+      .cover-eyebrow {
+        letter-spacing: 0.22em;
+        font-size: 11pt;
+        text-transform: uppercase;
+        opacity: 0.75;
+      }
+
+      .cover-title {
+        font-family: "{{ render.heading_font }}", serif;
+        font-size: 30pt;
+        line-height: 1.2;
+        max-width: 75%;
+        margin: 12mm 0 0;
+      }
+
+      .cover-subtitle {
+        width: 62%;
+        font-size: 14pt;
+        line-height: 1.6;
+      }
+
+      .page {
+        padding: 10mm;
+      }
+
+      .art-frame {
+        position: relative;
+        width: 100%;
+        height: calc(100% - 36mm);
+        border-radius: 8mm;
+        overflow: hidden;
+        background: rgba(255, 255, 255, 0.55);
+        box-shadow: inset 0 0 0 0.7mm rgba(84, 58, 33, 0.15);
+      }
+
+      .art-frame img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+
+      .text-band {
+        position: absolute;
+        left: 10mm;
+        right: 10mm;
+        bottom: 10mm;
+        min-height: 24mm;
+        padding: 6mm 7mm 7mm;
+        border-radius: 6mm;
+        background: rgba(252, 247, 239, 0.92);
+        box-shadow: 0 1.5mm 5mm rgba(60, 36, 18, 0.12);
+      }
+
+      .page-number {
+        position: absolute;
+        top: 5mm;
+        right: 6mm;
+        font-size: 10pt;
+        letter-spacing: 0.08em;
+        opacity: 0.7;
+      }
+
+      .story-text {
+        margin: 0;
+        font-size: 13.5pt;
+        line-height: 1.7;
+      }
+    </style>
+  </head>
+  <body>
+    {% if render.include_cover %}
+    <section class="sheet cover">
+      <div>
+        <div class="cover-eyebrow">MagicStory Picture Book</div>
+        <h1 class="cover-title">{{ book.title }}</h1>
+      </div>
+      <div class="cover-subtitle">
+        <p>适读年龄 {{ book.target_age }}，共 {{ book.page_count }} 页。</p>
+        <p>绘本风格：{{ book.style }}</p>
+      </div>
+    </section>
+    {% endif %}
+
+    {% for page in book.pages %}
+    <section class="sheet page">
+      <div class="art-frame">
+        <img src="{{ page.image_path }}" alt="Page {{ page.page_number }}">
+      </div>
+      <div class="page-number">{{ "%02d"|format(page.page_number) }}</div>
+      <div class="text-band">
+        <p class="story-text">{{ page.story_text }}</p>
+      </div>
+    </section>
+    {% endfor %}
+  </body>
+  </html>
