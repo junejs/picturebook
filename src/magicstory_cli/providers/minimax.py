@@ -49,7 +49,12 @@ class MiniMaxImageProvider(ImageProvider):
             response.raise_for_status()
             data = response.json()
 
-        logger.info("Image response: status=%s model=%s output=%s", response.status_code, self.config.model, output_path)
+        logger.info(
+            "Image response: status=%s model=%s output=%s",
+            response.status_code,
+            self.config.model,
+            output_path,
+        )
 
         status_code = data.get("base_resp", {}).get("status_code")
         if status_code not in (None, 0):

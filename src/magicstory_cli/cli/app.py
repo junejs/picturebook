@@ -5,13 +5,13 @@ from pathlib import Path
 
 import typer
 from rich.console import Console
-from rich.table import Table
 from rich.logging import RichHandler
+from rich.table import Table
 
 from magicstory_cli.config.loader import load_settings
-from magicstory_cli.core.illustrator import illustrate_book
-from magicstory_cli.core.build_pipeline import build_book
 from magicstory_cli.core.book_renderer import render_book
+from magicstory_cli.core.build_pipeline import build_book
+from magicstory_cli.core.illustrator import illustrate_book
 from magicstory_cli.core.paths import resolve_project_paths
 from magicstory_cli.core.project_scaffold import create_book_project
 from magicstory_cli.core.story_planner import plan_story
@@ -39,6 +39,42 @@ def resolve_settings(settings_path: Path) -> AppSettings:
     app_settings = load_settings(settings_path)
     logging.getLogger().setLevel(app_settings.app.log_level.upper())
     return app_settings
+
+
+def _prompt_book_config(
+    title: str | None = None,
+    idea: str | None = None,
+    style: str | None = None,
+    page_count: int | None = None,
+    language: str | None = None,
+    target_age: str | None = None,
+    book_id: str | None = None,
+    notes: str | None = None,
+    prompt_optional_fields: bool = False,
+) -> BookConfig:
+    prompt_title = title or typer.prompt("Book title")
+    prompt_idea = idea or typer.prompt("Story idea")
+    prompt_style = style or typer.prompt("Illustration style")
+    prompt_page_count = page_count if page_count is not None else typer.prompt("Page count", default=12, type=int)
+    prompt_language = language or typer.prompt("Language", default="zh-CN")
+    prompt_target_age = target_age or typer.prompt("Target age", default="4-6")
+    prompt_book_id = book_id or (
+        typer.prompt("Project id", default=slugify(prompt_title)) if prompt_optional_fields else slugify(prompt_title)
+    )
+    prompt_notes = notes if notes is not None else (
+        typer.prompt("Notes", default="") if prompt_optional_fields else None
+    )
+
+    return BookConfig(
+        id=prompt_book_id,
+        title=prompt_title,
+        idea=prompt_idea,
+        language=prompt_language,
+        target_age=prompt_target_age,
+        style=prompt_style,
+        page_count=prompt_page_count,
+        notes=prompt_notes or None,
+    )
 
 
 @app.command()
@@ -69,6 +105,7 @@ def doctor(
     table.add_row("Page range", "4-16 pages")
     table.add_row("PDF renderer", "WeasyPrint")
     table.add_row("Reference images", str(app_settings.features.enable_reference_image).lower())
+    table.add_row("Max parallel image jobs", str(app_settings.runtime.max_parallel_image_jobs))
     table.add_row("Log level", app_settings.app.log_level)
 
     try:
@@ -88,27 +125,50 @@ def doctor(
 
 @app.command("new")
 def new_project(
-    title: str = typer.Argument(..., help="Book title."),
-    idea: str = typer.Option(..., "--idea", prompt=True, help="Core story idea."),
-    style: str = typer.Option(..., "--style", prompt=True, help="Illustration style."),
-    page_count: int = typer.Option(12, "--pages", min=4, max=16, help="Book page count."),
-    language: str = typer.Option("zh-CN", "--language", help="Primary book language."),
-    target_age: str = typer.Option("4-6", "--age", help="Target age range."),
+    title: str | None = typer.Argument(None, help="Book title."),
+    idea: str | None = typer.Option(None, "--idea", help="Core story idea."),
+    style: str | None = typer.Option(None, "--style", help="Illustration style."),
+    page_count: int | None = typer.Option(None, "--pages", min=4, max=16, help="Book page count."),
+    language: str | None = typer.Option(None, "--language", help="Primary book language."),
+    target_age: str | None = typer.Option(None, "--age", help="Target age range."),
     book_id: str | None = typer.Option(None, "--id", help="Optional custom project id."),
+    notes: str | None = typer.Option(None, "--notes", help="Optional author notes."),
     settings: Path = typer.Option(Path("config/settings.yaml"), "--settings", help="Path to settings YAML."),
 ) -> None:
     """Create a new book project scaffold."""
     app_settings = resolve_settings(settings)
-    normalized_id = book_id or slugify(title)
-    book = BookConfig(
-        id=normalized_id,
-        title=title,
-        idea=idea,
-        language=language,
-        target_age=target_age,
-        style=style,
-        page_count=page_count,
+    needs_prompt = (
+        title is None
+        or idea is None
+        or style is None
+        or page_count is None
+        or language is None
+        or target_age is None
     )
+    if needs_prompt:
+        book = _prompt_book_config(
+            title,
+            idea,
+            style,
+            page_count,
+            language,
+            target_age,
+            book_id,
+            notes,
+            prompt_optional_fields=True,
+        )
+    else:
+        normalized_id = book_id or slugify(title)
+        book = BookConfig(
+            id=normalized_id,
+            title=title,
+            idea=idea,
+            language=language,
+            target_age=target_age,
+            style=style,
+            page_count=page_count,
+            notes=notes,
+        )
 
     project_dir = create_book_project(app_settings.runtime.workspace_dir, book, app_settings)
     console.print(f"Created project: {project_dir}")

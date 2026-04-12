@@ -30,7 +30,12 @@ class OpenAICompatibleTextProvider(TextProvider):
             payload["response_format"] = {"type": "json_object"}
 
         url = f"{base_url}/chat/completions"
-        logger.info("LLM request: POST %s model=%s messages=%d", url, self.config.model, len(payload["messages"]))
+        logger.info(
+            "LLM request: POST %s model=%s messages=%d",
+            url,
+            self.config.model,
+            len(payload["messages"]),
+        )
 
         transport = httpx.HTTPTransport(retries=self.config.max_retries)
         with httpx.Client(timeout=self.config.timeout_seconds, transport=transport) as client:

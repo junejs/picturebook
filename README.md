@@ -174,6 +174,7 @@ app:
 - 默认绘本尺寸为 `210mm x 210mm`
 - 当前图片 provider 只实现了 `MiniMax`
 - 当前文本 provider 只实现了 `OpenAI-compatible`
+- `runtime.max_parallel_image_jobs` 控制 `story illustrate` / `story build` 的并行出图个数
 - `vision` 配置已经预留，但当前主流程还没有实际消费它
 - `enable_reference_image` 和 `app_url` 也已预留，后面做角色参考图时会用到
 
@@ -187,6 +188,8 @@ uv run story new "月亮花园" \
   --style "warm watercolor picture book" \
   --pages 8
 ```
+
+如果你不想一次性把参数写完，可以直接运行 `uv run story new`，命令会按步骤逐个询问标题、故事设定、风格和页数等信息。
 
 ### 2. 生成分页文本和插图描述
 

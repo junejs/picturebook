@@ -41,7 +41,9 @@ def render_book(
     missing_images = [page.page_number for page in book_spec.pages if not page.image_path]
     if missing_images:
         missing_display = ", ".join(str(value) for value in missing_images)
-        raise RuntimeError(f"missing image_path for pages: {missing_display}. Run `story illustrate` first.")
+        raise RuntimeError(
+            f"missing image_path for pages: {missing_display}. Run `story illustrate` first."
+        )
 
     html = render_book_html(
         book=book_spec,
