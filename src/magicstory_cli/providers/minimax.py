@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import logging
 import os
 from pathlib import Path
 
@@ -8,6 +9,8 @@ import httpx
 
 from magicstory_cli.models.config import ProviderConfig
 from magicstory_cli.providers.base import ImageProvider
+
+logger = logging.getLogger(__name__)
 
 
 class MiniMaxImageProvider(ImageProvider):
@@ -30,9 +33,13 @@ class MiniMaxImageProvider(ImageProvider):
             "prompt_optimizer": True,
         }
 
-        with httpx.Client(timeout=self.config.timeout_seconds) as client:
+        url = f"{base_url}/v1/image_generation"
+        logger.info("Image request: POST %s model=%s", url, self.config.model)
+
+        transport = httpx.HTTPTransport(retries=self.config.max_retries)
+        with httpx.Client(timeout=self.config.timeout_seconds, transport=transport) as client:
             response = client.post(
-                f"{base_url}/v1/image_generation",
+                url,
                 headers={
                     "Authorization": f"Bearer {api_key}",
                     "Content-Type": "application/json",
@@ -41,6 +48,8 @@ class MiniMaxImageProvider(ImageProvider):
             )
             response.raise_for_status()
             data = response.json()
+
+        logger.info("Image response: status=%s model=%s output=%s", response.status_code, self.config.model, output_path)
 
         status_code = data.get("base_resp", {}).get("status_code")
         if status_code not in (None, 0):

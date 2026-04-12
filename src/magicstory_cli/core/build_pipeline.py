@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -8,6 +9,8 @@ from magicstory_cli.core.illustrator import IllustrationResult, illustrate_book
 from magicstory_cli.core.story_planner import plan_story
 from magicstory_cli.models.book import BookSpec
 from magicstory_cli.models.config import AppSettings
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -24,6 +27,8 @@ def build_book(
     templates_dir: Path,
     overwrite_images: bool = False,
 ) -> BuildResult:
+    logger.info("Starting full build pipeline for: %s", project_dir)
+
     planned_book = plan_story(project_dir, settings, prompts_dir)
     illustration_result = illustrate_book(
         project_dir,
@@ -31,6 +36,8 @@ def build_book(
         overwrite=overwrite_images,
     )
     render_result = render_book(project_dir, settings, templates_dir)
+
+    logger.info("Build pipeline complete for: %s", planned_book.title)
     return BuildResult(
         planned_book=planned_book,
         illustration_result=illustration_result,

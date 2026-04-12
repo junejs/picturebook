@@ -2,19 +2,29 @@ providers:
   text:
     provider: openai-compatible
     model: gpt-4.1-mini
-    api_key_env: OPENAI_API_KEY
+    api_key_env: TEXT_AI_API_KEY
     base_url: null
     timeout_seconds: 300
+    max_retries: 2
+    # json_mode: true          # set false for LM Studio / servers that don't support response_format
   image:
     provider: minimax
     model: image-01
-    api_key_env: MINIMAX_API_KEY
+    api_key_env: IMAGE_AI_API_KEY
     base_url: https://api.minimaxi.com
     timeout_seconds: 300
+    max_retries: 2
+  vision:
+    provider: openai-compatible
+    model: gpt-4.1-mini
+    api_key_env: VISION_AI_API_KEY
+    base_url: null
+    timeout_seconds: 300
+    max_retries: 2
 
 render:
   page_size: 210mmx210mm
-  include_cover: true
+  include_cover: false
   text_layout: bottom-band
   body_font: Noto Sans SC
   heading_font: Noto Serif SC
@@ -26,4 +36,10 @@ runtime:
   images_dirname: images
   output_dirname: output
   render_dirname: render
-  max_parallel_image_jobs: 1
+  max_parallel_image_jobs: 2
+
+features:
+  enable_reference_image: false
+
+app:
+  log_level: info

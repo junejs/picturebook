@@ -14,6 +14,8 @@ class ProviderConfig(BaseModel):
     api_key_env: str | None = None
     base_url: str | None = None
     timeout_seconds: int = Field(default=300, ge=5, le=1800)
+    max_retries: int = Field(default=2, ge=0, le=10)
+    json_mode: bool = True
 
 
 class ProvidersConfig(BaseModel):
@@ -21,6 +23,7 @@ class ProvidersConfig(BaseModel):
 
     text: ProviderConfig
     image: ProviderConfig
+    vision: ProviderConfig | None = None
 
 
 class RenderConfig(BaseModel):
@@ -45,12 +48,25 @@ class RuntimeConfig(BaseModel):
     max_parallel_image_jobs: int = Field(default=1, ge=1, le=8)
 
 
+class FeaturesConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    enable_reference_image: bool = False
+
+
+class AppConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    log_level: Literal["debug", "info", "warning", "error"] = "info"
+
+
 class AppSettings(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     providers: ProvidersConfig
     render: RenderConfig = RenderConfig()
     runtime: RuntimeConfig = RuntimeConfig()
+    features: FeaturesConfig = FeaturesConfig()
+    app: AppConfig = AppConfig()
 
 
 class BookConfig(BaseModel):

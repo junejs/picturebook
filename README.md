@@ -97,11 +97,17 @@ cp config/settings.example.yaml config/settings.yaml
 至少需要：
 
 ```bash
-export OPENAI_API_KEY=...
-export MINIMAX_API_KEY=...
+export TEXT_AI_API_KEY=...
+export IMAGE_AI_API_KEY=...
 ```
 
-如果你的文本模型是兼容 OpenAI Chat Completions 的网关，也可以在 `config/settings.yaml` 里改 `base_url` 和 `model`。
+可选：
+
+```bash
+export VISION_AI_API_KEY=...
+```
+
+如果你的文本模型或视觉模型是兼容 OpenAI Chat Completions 的网关，也可以在 `config/settings.yaml` 里改 `base_url` 和 `model`。
 
 ### 4. 环境检查
 
@@ -120,15 +126,24 @@ providers:
   text:
     provider: openai-compatible
     model: gpt-4.1-mini
-    api_key_env: OPENAI_API_KEY
+    api_key_env: TEXT_AI_API_KEY
     base_url: null
     timeout_seconds: 300
+    max_retries: 2
   image:
     provider: minimax
     model: image-01
-    api_key_env: MINIMAX_API_KEY
+    api_key_env: IMAGE_AI_API_KEY
     base_url: https://api.minimaxi.com
     timeout_seconds: 300
+    max_retries: 2
+  vision:
+    provider: openai-compatible
+    model: gpt-4.1-mini
+    api_key_env: VISION_AI_API_KEY
+    base_url: null
+    timeout_seconds: 300
+    max_retries: 2
 
 render:
   page_size: 210mmx210mm
@@ -145,6 +160,12 @@ runtime:
   output_dirname: output
   render_dirname: render
   max_parallel_image_jobs: 1
+
+features:
+  enable_reference_image: false
+
+app:
+  log_level: info
 ```
 
 注意：
@@ -153,6 +174,8 @@ runtime:
 - 默认绘本尺寸为 `210mm x 210mm`
 - 当前图片 provider 只实现了 `MiniMax`
 - 当前文本 provider 只实现了 `OpenAI-compatible`
+- `vision` 配置已经预留，但当前主流程还没有实际消费它
+- `enable_reference_image` 和 `app_url` 也已预留，后面做角色参考图时会用到
 
 ## 快速开始
 
@@ -162,7 +185,7 @@ runtime:
 uv run story new "月亮花园" \
   --idea "一只小兔子在月光下寻找会发光的花" \
   --style "warm watercolor picture book" \
-  --pages 12
+  --pages 8
 ```
 
 ### 2. 生成分页文本和插图描述

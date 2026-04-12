@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import typer
 from rich.console import Console
 from rich.table import Table
+from rich.logging import RichHandler
 
 from magicstory_cli.config.loader import load_settings
 from magicstory_cli.core.illustrator import illustrate_book
@@ -22,13 +24,21 @@ console = Console()
 PROMPTS_DIR = Path(__file__).resolve().parents[3] / "prompts"
 TEMPLATES_DIR = Path(__file__).resolve().parents[3] / "templates"
 
+logging.basicConfig(
+    format="%(message)s",
+    datefmt="[%X]",
+    handlers=[RichHandler(console=console, rich_tracebacks=True)],
+)
+
 
 def resolve_settings(settings_path: Path) -> AppSettings:
     if not settings_path.exists():
         raise typer.BadParameter(
             f"settings file not found: {settings_path}. Copy config/settings.example.yaml first."
         )
-    return load_settings(settings_path)
+    app_settings = load_settings(settings_path)
+    logging.getLogger().setLevel(app_settings.app.log_level.upper())
+    return app_settings
 
 
 @app.command()
@@ -48,8 +58,18 @@ def doctor(
     table.add_row(
         "Image provider", f"{app_settings.providers.image.provider} / {app_settings.providers.image.model}"
     )
+    table.add_row(
+        "Vision provider",
+        (
+            f"{app_settings.providers.vision.provider} / {app_settings.providers.vision.model}"
+            if app_settings.providers.vision
+            else "not configured"
+        ),
+    )
     table.add_row("Page range", "4-16 pages")
     table.add_row("PDF renderer", "WeasyPrint")
+    table.add_row("Reference images", str(app_settings.features.enable_reference_image).lower())
+    table.add_row("Log level", app_settings.app.log_level)
 
     try:
         build_text_provider(app_settings)

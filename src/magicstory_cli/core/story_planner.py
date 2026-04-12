@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -12,6 +13,8 @@ from magicstory_cli.providers.factory import build_text_provider
 from magicstory_cli.utils.files import write_json
 from magicstory_cli.utils.json_tools import parse_json_object
 from magicstory_cli.utils.prompts import create_prompt_environment, render_prompt
+
+logger = logging.getLogger(__name__)
 
 
 class PlannedPage(BaseModel):
@@ -31,6 +34,8 @@ class PlannedBookPayload(BaseModel):
 def plan_story(project_dir: Path, settings: AppSettings, prompts_dir: Path) -> BookSpec:
     paths = resolve_project_paths(project_dir, settings)
     book = load_book_config(paths.book_yaml)
+    logger.info("Planning story: %s (%d pages)", book.title, book.page_count)
+
     prompt_env = create_prompt_environment(prompts_dir)
     user_prompt = render_prompt(
         prompt_env,
@@ -48,6 +53,8 @@ def plan_story(project_dir: Path, settings: AppSettings, prompts_dir: Path) -> B
         prompt=user_prompt,
         system_prompt=system_prompt,
     )
+    logger.debug("Raw LLM response length: %d chars", len(raw_response))
+
     payload = _validate_payload(parse_json_object(raw_response), book.page_count)
     book_spec = BookSpec(
         title=book.title,
@@ -76,6 +83,7 @@ def plan_story(project_dir: Path, settings: AppSettings, prompts_dir: Path) -> B
             "planned_pages": len(book_spec.pages),
         },
     )
+    logger.info("Plan complete: %d pages planned for %s", len(book_spec.pages), book.title)
     return book_spec
 
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -10,6 +11,8 @@ from magicstory_cli.models.book import BookSpec
 from magicstory_cli.models.config import AppSettings
 from magicstory_cli.providers.factory import build_image_provider
 from magicstory_cli.utils.files import read_json, write_json
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -35,6 +38,8 @@ def illustrate_book(
         raise RuntimeError(f"invalid pages artifact: {exc}") from exc
 
     provider = build_image_provider(settings)
+    logger.info("Illustrating book: %s (%d pages, overwrite=%s)", book_spec.title, len(book_spec.pages), overwrite)
+
     generated_pages = 0
     skipped_pages = 0
 
@@ -43,6 +48,7 @@ def illustrate_book(
         image_output_path = project_dir / image_relative_path
 
         if image_output_path.exists() and not overwrite:
+            logger.debug("Skipping page %d (already exists): %s", page.page_number, image_output_path)
             page.image_path = image_relative_path.as_posix()
             skipped_pages += 1
             continue
@@ -62,6 +68,7 @@ def illustrate_book(
             "overwrite": overwrite,
         },
     )
+    logger.info("Illustration complete: %d generated, %d skipped", generated_pages, skipped_pages)
     return IllustrationResult(
         generated_pages=generated_pages,
         skipped_pages=skipped_pages,

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -11,6 +12,8 @@ from magicstory_cli.models.config import AppSettings
 from magicstory_cli.rendering.html_renderer import render_book_html
 from magicstory_cli.rendering.pdf import write_pdf_from_html
 from magicstory_cli.utils.files import read_json, write_json
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -50,7 +53,10 @@ def render_book(
     pdf_path = paths.output_dir / "book.pdf"
     html_path.parent.mkdir(parents=True, exist_ok=True)
     html_path.write_text(html, encoding="utf-8")
+    logger.info("HTML rendered: %s (%d chars)", html_path, len(html))
+
     write_pdf_from_html(html, pdf_path, base_url=project_dir)
+    logger.info("PDF rendered: %s", pdf_path)
 
     write_json(
         paths.artifacts_dir / "render.meta.json",
