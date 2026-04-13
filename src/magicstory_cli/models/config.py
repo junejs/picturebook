@@ -78,7 +78,7 @@ class BookConfig(BaseModel):
     idea: str
     language: str = "zh-CN"
     target_age: str = "4-6"
-    style: str
+    style: str = "picture book"
     page_count: int = Field(ge=4, le=16)
     characters: list[str] = Field(default_factory=list)
     notes: str | None = None

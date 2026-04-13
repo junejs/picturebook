@@ -18,7 +18,42 @@
 - `story illustrate`：根据每页 prompt 调用图片模型出图
 - `story render`：把图片和文本排版为正式绘本 HTML / PDF
 - `story build`：串联完整流程
+- `story character new`：创建角色参考图（文生图 + Vision 分析）
+- `story character list`：列出所有可用角色
+- 创建项目时可指定角色（`--characters`），实现角色一致性
 - 单元测试：覆盖配置校验、分页校验、续跑逻辑、渲染、build orchestration
+
+## 角色系统
+
+角色（Character）是全局共享的可复用资源，存储在 `characters/` 目录下。创建角色时会自动：
+
+1. 根据描述文生图，生成角色参考图
+2. 使用 Vision 模型分析参考图，提取精准的角色视觉描述
+3. 生成绘本时，角色描述注入 prompt + 参考图通过 API 传入，双重保障一致性
+
+### 创建角色
+
+```bash
+uv run story character new "小明" \
+  -d "一个6岁的小男孩，穿蓝色背带裤，棕色短发，大眼睛"
+```
+
+### 查看角色列表
+
+```bash
+uv run story character list
+```
+
+### 在项目中使用角色
+
+```bash
+uv run story new "小明的冒险" \
+  --idea "小明在森林中发现了一个神奇的秘密" \
+  --characters xiaoming \
+  --pages 8
+```
+
+也可以在交互模式下指定角色 ID（逗号分隔）。
 
 ## 技术选型
 
@@ -31,6 +66,7 @@
 - Provider 抽象：
   - 文本模型：`OpenAI-compatible`
   - 图片模型：`MiniMax`
+  - 视觉模型：`OpenAI-compatible`（用于角色参考图分析）
 
 ## 目录结构
 
@@ -41,7 +77,11 @@ story/
 ├── prompts/
 │   ├── story_plan.jinja2
 │   ├── page_content.jinja2
-│   └── illustration_prompt.jinja2
+│   ├── illustration_prompt.jinja2
+│   ├── character_description_extraction.jinja2
+│   └── minimax/
+│       ├── character_generation.jinja2
+│       └── illustration_generation.jinja2
 ├── src/magicstory_cli/
 │   ├── cli/
 │   ├── config/
@@ -57,7 +97,19 @@ story/
 └── README.md
 ```
 
-运行后生成的绘本项目默认放在 `projects/` 下：
+### 角色目录
+
+角色数据独立于项目，全局共享：
+
+```text
+characters/<character-id>/
+├── character.yaml
+└── reference.png
+```
+
+### 绘本项目目录
+
+绘本项目默认放在 `projects/` 下：
 
 ```text
 projects/<book-id>/
@@ -101,7 +153,7 @@ export TEXT_AI_API_KEY=...
 export IMAGE_AI_API_KEY=...
 ```
 
-可选：
+如果要使用角色功能（Vision 分析），还需要：
 
 ```bash
 export VISION_AI_API_KEY=...
@@ -155,6 +207,7 @@ render:
 
 runtime:
   workspace_dir: projects
+  characters_dirname: characters
   artifacts_dirname: artifacts
   images_dirname: images
   output_dirname: output
@@ -172,15 +225,22 @@ app:
 
 - 绘本页数限制为 `4-16`
 - 默认绘本尺寸为 `210mm x 210mm`
+- 默认艺术风格为 `picture book`，适用于角色生成和插图生成
 - 当前图片 provider 只实现了 `MiniMax`
 - 当前文本 provider 只实现了 `OpenAI-compatible`
+- 当前视觉 provider 只实现了 `OpenAI-compatible`
 - `runtime.max_parallel_image_jobs` 控制 `story illustrate` / `story build` 的并行出图个数
-- `vision` 配置已经预留，但当前主流程还没有实际消费它
-- `enable_reference_image` 和 `app_url` 也已预留，后面做角色参考图时会用到
 
 ## 快速开始
 
-### 1. 创建一本新书
+### 1. 创建角色（可选）
+
+```bash
+uv run story character new "小明" \
+  -d "一个6岁的小男孩，穿蓝色背带裤，棕色短发，大眼睛"
+```
+
+### 2. 创建一本新书
 
 ```bash
 uv run story new "月亮花园" \
@@ -189,15 +249,24 @@ uv run story new "月亮花园" \
   --pages 8
 ```
 
+如果之前创建了角色，可以通过 `--characters` 指定：
+
+```bash
+uv run story new "月亮花园" \
+  --idea "一只小兔子在月光下寻找会发光的花" \
+  --characters xiaoming \
+  --pages 8
+```
+
 如果你不想一次性把参数写完，可以直接运行 `uv run story new`，命令会按步骤逐个询问标题、故事设定、风格和页数等信息。
 
-### 2. 生成分页文本和插图描述
+### 3. 生成分页文本和插图描述
 
 ```bash
 uv run story plan --project projects/yue-liang-hua-yuan
 ```
 
-### 3. 生成插图
+### 4. 生成插图
 
 ```bash
 uv run story illustrate --project projects/yue-liang-hua-yuan
@@ -209,13 +278,13 @@ uv run story illustrate --project projects/yue-liang-hua-yuan
 uv run story illustrate --project projects/yue-liang-hua-yuan --overwrite
 ```
 
-### 4. 生成正式绘本 PDF
+### 5. 生成正式绘本 PDF
 
 ```bash
 uv run story render --project projects/yue-liang-hua-yuan
 ```
 
-### 5. 一条命令完整执行
+### 6. 一条命令完整执行
 
 ```bash
 uv run story build --project projects/yue-liang-hua-yuan
@@ -244,6 +313,10 @@ uv run story build --project projects/yue-liang-hua-yuan
 
 每本书的输入配置，通常由 `story new` 生成，也允许人工修改。
 
+### `character.yaml`
+
+每个角色的配置，包含名称、描述、Vision 分析后的精准描述和风格。
+
 ### `artifacts/pages.json`
 
 整个流水线最核心的中间产物，里面包含：
@@ -257,7 +330,7 @@ uv run story build --project projects/yue-liang-hua-yuan
 
 ### `render/book.html`
 
-PDF 渲染前的排版结果。  
+PDF 渲染前的排版结果。
 当 PDF 样式有问题时，优先检查这个文件，而不是先怀疑模型输出。
 
 ## 测试
@@ -284,9 +357,8 @@ pytest -q
 
 ## 已知限制
 
-- 当前还没有角色参考图能力
 - 当前还没有复杂的版式模板切换
-- 当前 `build` 会重新执行 `plan`，不会自动判断“文本是否无需重生”
+- 当前 `build` 会重新执行 `plan`，不会自动判断"文本是否无需重生"
 - 当前没有数据库，也没有多人并发写同一本书的保护
 - `WeasyPrint` 在不同机器上可能依赖额外系统库
 
@@ -297,8 +369,7 @@ pytest -q
 1. `build` 的断点续跑策略和更细的跳过逻辑
 2. provider 级别重试、超时和错误分类
 3. 更正式的绘本版式模板
-4. 角色参考图和角色一致性能力
-5. 集成测试和示例项目数据
+4. 集成测试和示例项目数据
 
 ## 开发命令
 
@@ -312,6 +383,7 @@ pytest -q
 ## 代码入口
 
 - CLI 入口：`src/magicstory_cli/cli/app.py`
+- 角色管理：`src/magicstory_cli/core/character_manager.py`
 - 故事规划：`src/magicstory_cli/core/story_planner.py`
 - 插图生成：`src/magicstory_cli/core/illustrator.py`
 - PDF 渲染：`src/magicstory_cli/core/book_renderer.py`

@@ -29,7 +29,7 @@ def create_character(
     logger.info("Creating character: %s in %s", config.name, char_dir)
 
     # Step 1: Generate reference image via text-to-image
-    style = config.style or "warm watercolor picture book"
+    style = config.style or "picture book"
     prompt_env = create_prompt_environment(prompts_dir)
     gen_prompt = render_prompt(
         prompt_env,
