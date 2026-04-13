@@ -41,6 +41,7 @@ class RuntimeConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     workspace_dir: Path = Path("projects")
+    characters_dirname: str = "characters"
     artifacts_dirname: str = "artifacts"
     images_dirname: str = "images"
     output_dirname: str = "output"
@@ -79,6 +80,7 @@ class BookConfig(BaseModel):
     target_age: str = "4-6"
     style: str
     page_count: int = Field(ge=4, le=16)
+    characters: list[str] = Field(default_factory=list)
     notes: str | None = None
 
     @field_validator("id")

@@ -55,7 +55,7 @@ book:
             return json.dumps(planning_payload, ensure_ascii=False)
 
     class FakeImageProvider:
-        def generate_image(self, prompt: str, output_path: str) -> str:
+        def generate_image(self, prompt: str, output_path: str, reference_images=None) -> str:
             assert prompt.startswith("prompt ")
             path = Path(output_path)
             path.write_bytes(b"fake-image")

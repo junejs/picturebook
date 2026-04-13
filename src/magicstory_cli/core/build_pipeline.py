@@ -33,6 +33,7 @@ def build_book(
     illustration_result = illustrate_book(
         project_dir,
         settings,
+        prompts_dir,
         overwrite=overwrite_images,
     )
     render_result = render_book(project_dir, settings, templates_dir)

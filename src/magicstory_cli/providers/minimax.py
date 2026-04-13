@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import logging
+import mimetypes
 import os
 from pathlib import Path
 
@@ -13,18 +14,30 @@ from magicstory_cli.providers.base import ImageProvider
 logger = logging.getLogger(__name__)
 
 
+def _encode_image_as_data_url(image_path: Path) -> str:
+    mime_type = mimetypes.guess_type(str(image_path))[0] or "image/png"
+    image_bytes = image_path.read_bytes()
+    b64 = base64.b64encode(image_bytes).decode("ascii")
+    return f"data:{mime_type};base64,{b64}"
+
+
 class MiniMaxImageProvider(ImageProvider):
     def __init__(self, config: ProviderConfig):
         self.config = config
 
-    def generate_image(self, prompt: str, output_path: str) -> str:
+    def generate_image(
+        self,
+        prompt: str,
+        output_path: str,
+        reference_images: list[Path] | None = None,
+    ) -> str:
         api_key_name = self.config.api_key_env or "MINIMAX_API_KEY"
         api_key = os.getenv(api_key_name)
         if not api_key:
             raise RuntimeError(f"missing required environment variable: {api_key_name}")
 
         base_url = (self.config.base_url or "https://api.minimaxi.com").rstrip("/")
-        payload = {
+        payload: dict = {
             "model": self.config.model,
             "prompt": prompt,
             "aspect_ratio": "1:1",
@@ -33,8 +46,21 @@ class MiniMaxImageProvider(ImageProvider):
             "prompt_optimizer": True,
         }
 
+        if reference_images:
+            subject_refs = []
+            for ref_path in reference_images:
+                data_url = _encode_image_as_data_url(ref_path)
+                subject_refs.append({"type": "character", "image_file": data_url})
+            payload["subject_reference"] = subject_refs
+            payload["prompt_optimizer"] = False
+
         url = f"{base_url}/v1/image_generation"
-        logger.info("Image request: POST %s model=%s", url, self.config.model)
+        logger.info(
+            "Image request: POST %s model=%s ref_count=%s",
+            url,
+            self.config.model,
+            len(reference_images) if reference_images else 0,
+        )
 
         transport = httpx.HTTPTransport(retries=self.config.max_retries)
         with httpx.Client(timeout=self.config.timeout_seconds, transport=transport) as client:

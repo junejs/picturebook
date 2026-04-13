@@ -11,15 +11,19 @@ from rich.table import Table
 from magicstory_cli.config.loader import load_settings
 from magicstory_cli.core.book_renderer import render_book
 from magicstory_cli.core.build_pipeline import build_book
+from magicstory_cli.core.character_manager import create_character, list_characters
 from magicstory_cli.core.illustrator import illustrate_book
-from magicstory_cli.core.paths import resolve_project_paths
+from magicstory_cli.core.paths import resolve_characters_dir
 from magicstory_cli.core.project_scaffold import create_book_project
 from magicstory_cli.core.story_planner import plan_story
+from magicstory_cli.models.character import CharacterConfig
 from magicstory_cli.models.config import AppSettings, BookConfig
-from magicstory_cli.providers.factory import build_image_provider, build_text_provider
+from magicstory_cli.providers.factory import build_image_provider, build_vision_provider
 from magicstory_cli.utils.files import slugify
 
 app = typer.Typer(help="MagicStory CLI for storybook generation.")
+character_app = typer.Typer(help="Manage reusable character references.")
+app.add_typer(character_app, name="character")
 console = Console()
 PROMPTS_DIR = Path(__file__).resolve().parents[3] / "prompts"
 TEMPLATES_DIR = Path(__file__).resolve().parents[3] / "templates"
@@ -49,6 +53,7 @@ def _prompt_book_config(
     language: str | None = None,
     target_age: str | None = None,
     book_id: str | None = None,
+    characters: list[str] | None = None,
     notes: str | None = None,
     prompt_optional_fields: bool = False,
 ) -> BookConfig:
@@ -64,6 +69,10 @@ def _prompt_book_config(
     prompt_notes = notes if notes is not None else (
         typer.prompt("Notes", default="") if prompt_optional_fields else None
     )
+    prompt_characters = characters if characters is not None else (
+        [c.strip() for c in typer.prompt("Characters (comma-separated IDs)", default="").split(",") if c.strip()]
+        if prompt_optional_fields else []
+    )
 
     return BookConfig(
         id=prompt_book_id,
@@ -73,13 +82,78 @@ def _prompt_book_config(
         target_age=prompt_target_age,
         style=prompt_style,
         page_count=prompt_page_count,
+        characters=prompt_characters,
         notes=prompt_notes or None,
     )
 
 
+# ── Character commands ──────────────────────────────────────────────────────
+
+
+@character_app.command("new")
+def character_new(
+    name: str = typer.Argument(..., help="Character name."),
+    description: str | None = typer.Option(None, "--description", "-d", help="Character appearance description."),
+    style: str | None = typer.Option(None, "--style", "-s", help="Art style override."),
+    settings: Path = typer.Option(Path("config/settings.yaml"), "--settings", help="Path to settings YAML."),
+) -> None:
+    """Create a new character with a reference image."""
+    app_settings = resolve_settings(settings)
+    prompt_description = description or typer.prompt("Character description")
+
+    char_id = slugify(name)
+    char_config = CharacterConfig(
+        id=char_id,
+        name=name,
+        description=prompt_description,
+        style=style,
+    )
+
+    characters_dir = resolve_characters_dir(app_settings)
+    with console.status("Generating character reference image and analyzing..."):
+        result = create_character(characters_dir, char_config, app_settings, PROMPTS_DIR)
+
+    console.print(f"[bold green]Character created:[/] {result.name} ({result.id})")
+    console.print(f"  Reference: {characters_dir / result.id / 'reference.png'}")
+    console.print(f"  Analyzed description: {result.analyzed_description[:200]}")
+
+
+@character_app.command("list")
+def character_list(
+    settings: Path = typer.Option(Path("config/settings.yaml"), "--settings", help="Path to settings YAML."),
+) -> None:
+    """List all available characters."""
+    app_settings = resolve_settings(settings)
+    characters_dir = resolve_characters_dir(app_settings)
+    characters = list_characters(characters_dir)
+
+    if not characters:
+        console.print("No characters found.")
+        return
+
+    table = Table(title="Characters")
+    table.add_column("ID", style="cyan")
+    table.add_column("Name")
+    table.add_column("Style")
+    table.add_column("Description")
+
+    for char in characters:
+        table.add_row(
+            char.id,
+            char.name,
+            char.style or "(default)",
+            (char.analyzed_description or char.description)[:60] + "...",
+        )
+
+    console.print(table)
+
+
+# ── Project commands ────────────────────────────────────────────────────────
+
+
 @app.command()
 def doctor(
-    settings: Path = typer.Option(Path("config/settings.yaml"), "--settings", help="Path to settings YAML.")
+    settings: Path = typer.Option(Path("config/settings.yaml"), "--settings", help="Path to settings YAML."),
 ) -> None:
     """Validate environment and provider configuration."""
     app_settings = resolve_settings(settings)
@@ -90,6 +164,7 @@ def doctor(
 
     table.add_row("Settings file", f"OK: {settings}")
     table.add_row("Workspace", str(app_settings.runtime.workspace_dir))
+    table.add_row("Characters dir", str(resolve_characters_dir(app_settings)))
     table.add_row("Text provider", f"{app_settings.providers.text.provider} / {app_settings.providers.text.model}")
     table.add_row(
         "Image provider", f"{app_settings.providers.image.provider} / {app_settings.providers.image.model}"
@@ -111,14 +186,20 @@ def doctor(
     try:
         build_text_provider(app_settings)
         table.add_row("Text provider wiring", "OK")
-    except Exception as exc:  # pragma: no cover - CLI surface
+    except Exception as exc:
         table.add_row("Text provider wiring", f"ERROR: {exc}")
 
     try:
         build_image_provider(app_settings)
         table.add_row("Image provider wiring", "OK")
-    except Exception as exc:  # pragma: no cover - CLI surface
+    except Exception as exc:
         table.add_row("Image provider wiring", f"ERROR: {exc}")
+
+    try:
+        build_vision_provider(app_settings)
+        table.add_row("Vision provider wiring", "OK")
+    except Exception as exc:
+        table.add_row("Vision provider wiring", f"ERROR: {exc}")
 
     console.print(table)
 
@@ -132,6 +213,7 @@ def new_project(
     language: str | None = typer.Option(None, "--language", help="Primary book language."),
     target_age: str | None = typer.Option(None, "--age", help="Target age range."),
     book_id: str | None = typer.Option(None, "--id", help="Optional custom project id."),
+    characters: list[str] | None = typer.Option(None, "--characters", "-c", help="Character IDs to use."),
     notes: str | None = typer.Option(None, "--notes", help="Optional author notes."),
     settings: Path = typer.Option(Path("config/settings.yaml"), "--settings", help="Path to settings YAML."),
 ) -> None:
@@ -154,6 +236,7 @@ def new_project(
             language,
             target_age,
             book_id,
+            characters,
             notes,
             prompt_optional_fields=True,
         )
@@ -167,6 +250,7 @@ def new_project(
             target_age=target_age,
             style=style,
             page_count=page_count,
+            characters=characters or [],
             notes=notes,
         )
 
@@ -183,9 +267,8 @@ def plan(
     """Generate structured story pages and illustration prompts."""
     app_settings = resolve_settings(settings)
     book_spec = plan_story(project, app_settings, PROMPTS_DIR)
-    paths = resolve_project_paths(project, app_settings)
+    paths = resolve_characters_dir(app_settings)
     console.print(f"Planned {len(book_spec.pages)} pages for: {book_spec.title}")
-    console.print(f"Artifacts written to: {paths.artifacts_dir}")
 
 
 @app.command()
@@ -196,13 +279,11 @@ def illustrate(
 ) -> None:
     """Generate page illustrations from the planned prompts."""
     app_settings = resolve_settings(settings)
-    result = illustrate_book(project, app_settings, overwrite=overwrite)
-    paths = resolve_project_paths(project, app_settings)
+    result = illustrate_book(project, app_settings, PROMPTS_DIR, overwrite=overwrite)
     console.print(
         f"Illustration complete for: {result.book_spec.title} "
         f"(generated={result.generated_pages}, skipped={result.skipped_pages})"
     )
-    console.print(f"Images written under: {paths.images_dir}")
 
 
 @app.command()
@@ -240,11 +321,6 @@ def build(
     )
     console.print(f"HTML: {result.render_result.html_path}")
     console.print(f"PDF: {result.render_result.pdf_path}")
-
-
-def _not_implemented(command_name: str, project: Path) -> int:
-    console.print(f"`story {command_name}` is not implemented yet for project: {project}")
-    return 1
 
 
 if __name__ == "__main__":

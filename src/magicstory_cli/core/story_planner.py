@@ -6,7 +6,8 @@ from pathlib import Path
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from magicstory_cli.config.loader import load_book_config
-from magicstory_cli.core.paths import resolve_project_paths
+from magicstory_cli.core.character_manager import load_character
+from magicstory_cli.core.paths import resolve_characters_dir, resolve_project_paths
 from magicstory_cli.models.book import BookSpec, PageSpec
 from magicstory_cli.models.config import AppSettings
 from magicstory_cli.providers.factory import build_text_provider
@@ -36,6 +37,20 @@ def plan_story(project_dir: Path, settings: AppSettings, prompts_dir: Path) -> B
     book = load_book_config(paths.book_yaml)
     logger.info("Planning story: %s (%d pages)", book.title, book.page_count)
 
+    # Load character descriptions if any
+    characters_text = ""
+    if book.characters:
+        characters_dir = resolve_characters_dir(settings)
+        char_descriptions = []
+        for char_id in book.characters:
+            try:
+                char = load_character(characters_dir, char_id)
+                char_descriptions.append(f"- **{char.name}**: {char.analyzed_description or char.description}")
+            except FileNotFoundError:
+                logger.warning("Character %s not found in %s, skipping", char_id, characters_dir)
+        if char_descriptions:
+            characters_text = "\n".join(char_descriptions)
+
     prompt_env = create_prompt_environment(prompts_dir)
     user_prompt = render_prompt(
         prompt_env,
@@ -46,6 +61,7 @@ def plan_story(project_dir: Path, settings: AppSettings, prompts_dir: Path) -> B
         target_age=book.target_age,
         style=book.style,
         page_count=book.page_count,
+        characters=characters_text or None,
     )
     system_prompt = render_prompt(prompt_env, "story_plan.jinja2")
 

@@ -16,6 +16,20 @@ def test_illustrate_book_skips_existing_images_and_updates_paths(tmp_path: Path)
     artifacts_dir.mkdir(parents=True)
     images_dir.mkdir()
 
+    (project_dir / "book.yaml").write_text(
+        """
+book:
+  id: moon-garden
+  title: Moon Garden
+  idea: A rabbit looks for a glowing flower.
+  language: zh-CN
+  target_age: 4-6
+  style: warm watercolor picture book
+  page_count: 4
+""".strip(),
+        encoding="utf-8",
+    )
+
     pages = []
     for page_number in range(1, 5):
         (images_dir / f"page-{page_number:02d}.png").write_bytes(b"fake-image")
@@ -45,7 +59,7 @@ def test_illustrate_book_skips_existing_images_and_updates_paths(tmp_path: Path)
     )
 
     settings = load_settings(Path("config/settings.example.yaml"))
-    result = illustrate_book(project_dir, settings, overwrite=False)
+    result = illustrate_book(project_dir, settings, Path("prompts"), overwrite=False)
 
     assert result.generated_pages == 0
     assert result.skipped_pages == 4
@@ -65,6 +79,20 @@ def test_illustrate_book_uses_parallel_workers_when_configured(tmp_path: Path, m
     images_dir = project_dir / "images"
     artifacts_dir.mkdir(parents=True)
     images_dir.mkdir()
+
+    (project_dir / "book.yaml").write_text(
+        """
+book:
+  id: moon-garden
+  title: Moon Garden
+  idea: A rabbit looks for a glowing flower.
+  language: zh-CN
+  target_age: 4-6
+  style: warm watercolor picture book
+  page_count: 4
+""".strip(),
+        encoding="utf-8",
+    )
 
     pages = []
     for page_number in range(1, 5):
@@ -102,7 +130,7 @@ def test_illustrate_book_uses_parallel_workers_when_configured(tmp_path: Path, m
     overlap_event = threading.Event()
 
     class FakeImageProvider:
-        def generate_image(self, prompt: str, output_path: str) -> str:
+        def generate_image(self, prompt: str, output_path: str, reference_images=None) -> str:
             nonlocal active_count, max_active_count
             with lock:
                 active_count += 1
@@ -123,7 +151,7 @@ def test_illustrate_book_uses_parallel_workers_when_configured(tmp_path: Path, m
         lambda settings: FakeImageProvider(),
     )
 
-    result = illustrate_book(project_dir, settings, overwrite=False)
+    result = illustrate_book(project_dir, settings, Path("prompts"), overwrite=False)
 
     assert result.generated_pages == 4
     assert result.skipped_pages == 0

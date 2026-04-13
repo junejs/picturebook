@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from pathlib import Path
 
 
 class TextProvider(ABC):
@@ -11,5 +12,10 @@ class TextProvider(ABC):
 
 class ImageProvider(ABC):
     @abstractmethod
-    def generate_image(self, prompt: str, output_path: str) -> str:
+    def generate_image(
+        self,
+        prompt: str,
+        output_path: str,
+        reference_images: list[Path] | None = None,
+    ) -> str:
         raise NotImplementedError

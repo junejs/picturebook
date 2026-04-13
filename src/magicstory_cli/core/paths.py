@@ -25,3 +25,11 @@ def resolve_project_paths(project_dir: Path, settings: AppSettings) -> ProjectPa
         output_dir=project_dir / settings.runtime.output_dirname,
         render_dir=project_dir / settings.runtime.render_dirname,
     )
+
+
+def resolve_characters_dir(settings: AppSettings) -> Path:
+    return settings.runtime.workspace_dir / settings.runtime.characters_dirname
+
+
+def resolve_character_reference(characters_dir: Path, character_id: str) -> Path:
+    return characters_dir / character_id / "reference.png"
