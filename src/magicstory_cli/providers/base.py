@@ -17,5 +17,6 @@ class ImageProvider(ABC):
         prompt: str,
         output_path: str,
         reference_images: list[Path] | None = None,
+        seed: int | None = None,
     ) -> str:
         raise NotImplementedError

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import random
 from pathlib import Path
 
 from pydantic import ValidationError
@@ -28,6 +29,11 @@ def create_character(
     char_dir = ensure_directory(_resolve_character_dir(root, config.id))
     logger.info("Creating character: %s in %s", config.name, char_dir)
 
+    # Generate a random seed for reproducible image generation
+    seed = random.randint(0, 2**31 - 1)
+    config.seed = seed
+    logger.info("Character seed: %s", seed)
+
     # Step 1: Generate reference image via text-to-image
     style = config.style or "picture book"
     prompt_env = create_prompt_environment(prompts_dir)
@@ -40,7 +46,7 @@ def create_character(
 
     image_provider = build_image_provider(settings)
     reference_path = str(char_dir / "reference.png")
-    image_provider.generate_image(gen_prompt, reference_path)
+    image_provider.generate_image(gen_prompt, reference_path, seed=seed)
     logger.info("Reference image generated: %s", reference_path)
 
     # Step 2: Analyze reference image with vision model

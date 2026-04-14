@@ -11,6 +11,7 @@ class CharacterConfig(BaseModel):
     description: str
     analyzed_description: str = ""
     style: str | None = None
+    seed: int | None = None
 
     @field_validator("id")
     @classmethod

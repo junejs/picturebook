@@ -130,7 +130,7 @@ book:
     overlap_event = threading.Event()
 
     class FakeImageProvider:
-        def generate_image(self, prompt: str, output_path: str, reference_images=None) -> str:
+        def generate_image(self, prompt: str, output_path: str, reference_images=None, seed=None) -> str:
             nonlocal active_count, max_active_count
             with lock:
                 active_count += 1

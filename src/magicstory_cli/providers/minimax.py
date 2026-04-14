@@ -30,6 +30,7 @@ class MiniMaxImageProvider(ImageProvider):
         prompt: str,
         output_path: str,
         reference_images: list[Path] | None = None,
+        seed: int | None = None,
     ) -> str:
         api_key_name = self.config.api_key_env or "MINIMAX_API_KEY"
         api_key = os.getenv(api_key_name)
@@ -45,6 +46,9 @@ class MiniMaxImageProvider(ImageProvider):
             "n": 1,
             "prompt_optimizer": True,
         }
+
+        if seed is not None:
+            payload["seed"] = seed
 
         if reference_images:
             subject_refs = []

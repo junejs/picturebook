@@ -44,6 +44,18 @@ def _build_character_description(characters_dir: Path, character_ids: list[str])
     return "; ".join(descriptions)
 
 
+def _get_character_seed(characters_dir: Path, character_ids: list[str]) -> int | None:
+    """Get the seed from the first character that has one."""
+    for char_id in character_ids:
+        try:
+            char = load_character(characters_dir, char_id)
+            if char.seed is not None:
+                return char.seed
+        except FileNotFoundError:
+            logger.warning("Character %s not found, skipping for seed", char_id)
+    return None
+
+
 def _collect_reference_images(
     characters_dir: Path, character_ids: list[str]
 ) -> list[Path]:
@@ -82,9 +94,11 @@ def illustrate_book(
     # Build character context for prompts
     character_description = ""
     reference_images: list[Path] = []
+    character_seed: int | None = None
     if character_ids:
         character_description = _build_character_description(characters_dir, character_ids)
         reference_images = _collect_reference_images(characters_dir, character_ids)
+        character_seed = _get_character_seed(characters_dir, character_ids)
 
     # Load illustration prompt template
     prompt_env = create_prompt_environment(prompts_dir)
@@ -102,7 +116,7 @@ def illustrate_book(
 
     generated_pages = 0
     skipped_pages = 0
-    pending_jobs: list[tuple[int, Path, str, list[Path]]] = []
+    pending_jobs: list[tuple[int, Path, str, list[Path], int | None]] = []
 
     for page in book_spec.pages:
         image_relative_path = (
@@ -140,12 +154,13 @@ def illustrate_book(
             image_output_path,
             illustration_prompt,
             reference_images,
+            character_seed,
         ))
 
-    def _generate_image(job: tuple[int, Path, str, list[Path]]) -> tuple[int, str]:
-        page_number, image_output_path, prompt, refs = job
+    def _generate_image(job: tuple[int, Path, str, list[Path], int | None]) -> tuple[int, str]:
+        page_number, image_output_path, prompt, refs, seed = job
         final_path = provider.generate_image(
-            prompt, str(image_output_path), reference_images=refs or None
+            prompt, str(image_output_path), reference_images=refs or None, seed=seed
         )
         return page_number, str(Path(final_path).relative_to(project_dir)).replace("\\", "/")
 
