@@ -44,6 +44,8 @@ def test_render_book_html_includes_cover_and_pages() -> None:
         ],
     )
     settings = load_settings(Path("config/settings.example.yaml"))
+    # 测试需要封面，确保 include_cover 为 True
+    settings.render.include_cover = True
 
     html = render_book_html(
         book=book,

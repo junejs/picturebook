@@ -355,6 +355,28 @@ pytest -q
 - 每新增一个稳定功能，至少补一组不依赖外部 API 的测试
 - provider 的真实联调优先做成集成测试，不污染单元测试稳定性
 
+## E2E 测试
+
+端到端测试通过 CLI 命令执行，调用真实 AI API 生成一本 4 页迷你绘本，用于验证完整流程和目视检查最终产物。
+
+前置条件：`config/settings.yaml` 已配置，`TEXT_AI_API_KEY` 和 `IMAGE_AI_API_KEY` 环境变量已设置。
+
+```bash
+# macOS
+DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib uv run story e2e-test
+
+# Linux
+uv run story e2e-test
+```
+
+测试完成后，PDF 产出于 `projects/_e2e_test/e2e-test-little-cat/output/book.pdf`，可直接打开查看。
+
+清理测试产物：
+
+```bash
+rm -rf projects/_e2e_test
+```
+
 ## 已知限制
 
 - 当前还没有复杂的版式模板切换

@@ -31,6 +31,7 @@ def test_new_project_prompts_for_missing_fields(tmp_path: Path, monkeypatch) -> 
             "4-6\n"
             "moon-garden\n"
             "notes here\n"
+            "\n"
         ),
     )
 

@@ -134,20 +134,18 @@ def illustrate_book(
             skipped_pages += 1
             continue
 
-        # Build the final illustration prompt with character context
-        illustration_prompt = page.illustration_prompt
-        if character_description:
-            try:
-                illustration_prompt = render_prompt(
-                    prompt_env,
-                    "minimax/illustration_generation.jinja2",
-                    style=book_spec.style,
-                    illustrationDescription=page.illustration_prompt,
-                    characterDescription=character_description,
-                )
-            except Exception:
-                logger.debug("Failed to render illustration template, using raw prompt")
-                illustration_prompt = page.illustration_prompt
+        # Build the final illustration prompt with style and character context
+        try:
+            illustration_prompt = render_prompt(
+                prompt_env,
+                "minimax/illustration_generation.jinja2",
+                style=book_spec.style,
+                illustrationDescription=page.illustration_prompt,
+                characterDescription=character_description or "",
+            )
+        except Exception:
+            logger.debug("Failed to render illustration template, using raw prompt")
+            illustration_prompt = page.illustration_prompt
 
         pending_jobs.append((
             page.page_number,

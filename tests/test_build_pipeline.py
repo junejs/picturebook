@@ -56,7 +56,7 @@ book:
 
     class FakeImageProvider:
         def generate_image(self, prompt: str, output_path: str, reference_images=None, seed=None) -> str:
-            assert prompt.startswith("prompt ")
+            assert "warm watercolor picture book" in prompt
             path = Path(output_path)
             path.write_bytes(b"fake-image")
             return str(path)

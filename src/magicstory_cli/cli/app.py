@@ -56,10 +56,11 @@ def _prompt_book_config(
     characters: list[str] | None = None,
     notes: str | None = None,
     prompt_optional_fields: bool = False,
+    default_style: str = "Cartoon",
 ) -> BookConfig:
     prompt_title = title or typer.prompt("Book title")
     prompt_idea = idea or typer.prompt("Story idea")
-    prompt_style = style or typer.prompt("Illustration style")
+    prompt_style = style or typer.prompt("Illustration style", default=default_style)
     prompt_page_count = page_count if page_count is not None else typer.prompt("Page count", default=12, type=int)
     prompt_language = language or typer.prompt("Language", default="zh-CN")
     prompt_target_age = target_age or typer.prompt("Target age", default="4-6")
@@ -239,6 +240,7 @@ def new_project(
             characters,
             notes,
             prompt_optional_fields=True,
+            default_style=app_settings.app.default_style,
         )
     else:
         normalized_id = book_id or slugify(title)
@@ -248,7 +250,7 @@ def new_project(
             idea=idea,
             language=language,
             target_age=target_age,
-            style=style,
+            style=style or app_settings.app.default_style,
             page_count=page_count,
             characters=characters or [],
             notes=notes,
@@ -296,6 +298,54 @@ def render(
     result = render_book(project, app_settings, TEMPLATES_DIR)
     console.print(f"Rendered HTML: {result.html_path}")
     console.print(f"Rendered PDF: {result.pdf_path}")
+
+
+@app.command("e2e-test")
+def e2e_test(
+    settings: Path = typer.Option(Path("config/settings.yaml"), "--settings", help="Path to settings YAML."),
+) -> None:
+    """运行端到端测试：用真实 AI API 生成一本 4 页迷你绘本。"""
+    app_settings = resolve_settings(settings)
+
+    test_id = "e2e-test-little-cat"
+    test_title = "小猫的冒险"
+    workspace = Path(app_settings.runtime.workspace_dir) / "_e2e_test"
+    project_dir = workspace / test_id
+
+    if project_dir.exists():
+        import shutil
+        shutil.rmtree(project_dir)
+
+    book = BookConfig(
+        id=test_id,
+        title=test_title,
+        idea="一只橘猫偷偷溜出家门，在花园里遇到了蝴蝶和青蛙，最后安全回家",
+        language="zh-CN",
+        target_age="3-5",
+        style="picture book",
+        page_count=4,
+    )
+
+    console.print(f"[bold]E2E 测试：创建项目[/] {test_title}")
+    project_dir = create_book_project(workspace, book, app_settings)
+
+    console.print("[bold]E2E 测试：运行 build 流程[/] (plan → illustrate → render)")
+    result = build_book(
+        project_dir,
+        app_settings,
+        prompts_dir=PROMPTS_DIR,
+        templates_dir=TEMPLATES_DIR,
+        overwrite_images=False,
+    )
+
+    console.print(
+        f"[bold green]E2E 测试通过[/] "
+        f"(pages={len(result.planned_book.pages)}, "
+        f"images={result.illustration_result.generated_pages})"
+    )
+    console.print(f"  HTML: {result.render_result.html_path}")
+    console.print(f"  PDF:  {result.render_result.pdf_path}")
+    console.print(f"  清理: rm -rf {project_dir}")
 
 
 @app.command()

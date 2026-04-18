@@ -58,6 +58,7 @@ class FeaturesConfig(BaseModel):
 class AppConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
     log_level: Literal["debug", "info", "warning", "error"] = "info"
+    default_style: str = "picture book"
 
 
 class AppSettings(BaseModel):
