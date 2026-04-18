@@ -43,4 +43,4 @@ features:
 
 app:
   log_level: info
-  default_style: 卡通
+  default_style: 水彩画
