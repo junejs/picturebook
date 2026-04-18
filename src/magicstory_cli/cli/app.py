@@ -316,19 +316,41 @@ def e2e_test(
         import shutil
         shutil.rmtree(project_dir)
 
+    # Step 1: Create a test character
+    console.print("[bold]E2E 测试：创建角色[/] (character)")
+    characters_dir = resolve_characters_dir(app_settings)
+    test_char_id = "e2e-test-orange-cat"
+    test_char_dir = characters_dir / test_char_id
+    if test_char_dir.exists():
+        import shutil
+        shutil.rmtree(test_char_dir)
+
+    char_config = CharacterConfig(
+        id=test_char_id,
+        name="小橘",
+        description="一只圆滚滚的橘色小猫，大眼睛，耳朵上有一小撮白毛，尾巴末端是白色的",
+        style="卡通风格",
+    )
+    with console.status("Generating character reference image and analyzing..."):
+        char_result = create_character(characters_dir, char_config, app_settings, PROMPTS_DIR)
+    console.print(f"  Character created: {char_result.name} ({char_result.id})")
+
+    # Step 2: Create book project with character reference
     book = BookConfig(
         id=test_id,
         title=test_title,
         idea="一只橘猫偷偷溜出家门，在花园里遇到了蝴蝶和青蛙，最后安全回家",
         language="zh-CN",
-        target_age="3-5",
-        style="picture book",
+        target_age="7-8",
+        style="卡通风格",
         page_count=4,
+        characters=[test_char_id],
     )
 
     console.print(f"[bold]E2E 测试：创建项目[/] {test_title}")
     project_dir = create_book_project(workspace, book, app_settings)
 
+    # Step 3: Run full build pipeline
     console.print("[bold]E2E 测试：运行 build 流程[/] (plan → illustrate → render)")
     result = build_book(
         project_dir,
@@ -341,11 +363,12 @@ def e2e_test(
     console.print(
         f"[bold green]E2E 测试通过[/] "
         f"(pages={len(result.planned_book.pages)}, "
-        f"images={result.illustration_result.generated_pages})"
+        f"images={result.illustration_result.generated_pages}, "
+        f"character={test_char_id})"
     )
     console.print(f"  HTML: {result.render_result.html_path}")
     console.print(f"  PDF:  {result.render_result.pdf_path}")
-    console.print(f"  清理: rm -rf {project_dir}")
+    console.print(f"  清理: rm -rf {project_dir} {test_char_dir}")
 
 
 @app.command()
