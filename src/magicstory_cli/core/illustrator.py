@@ -97,7 +97,8 @@ def illustrate_book(
     character_seed: int | None = None
     if character_ids:
         character_description = _build_character_description(characters_dir, character_ids)
-        reference_images = _collect_reference_images(characters_dir, character_ids)
+        if settings.features.enable_reference_image:
+            reference_images = _collect_reference_images(characters_dir, character_ids)
         character_seed = _get_character_seed(characters_dir, character_ids)
 
     # Load illustration prompt template

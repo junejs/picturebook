@@ -60,9 +60,10 @@ class MiniMaxImageProvider(ImageProvider):
 
         url = f"{base_url}/v1/image_generation"
         logger.info(
-            "Image request: POST %s model=%s ref_count=%s",
+            "Image request: POST %s model=%s seed=%s ref_count=%s",
             url,
             self.config.model,
+            seed,
             len(reference_images) if reference_images else 0,
         )
 

@@ -10,6 +10,7 @@ This project's primary language is Chinese — code comments, prompts, CLI outpu
 
 ```bash
 uv sync                      # Install dependencies
+playwright install chromium  # Download Chromium for PDF rendering
 uv run story --help          # CLI help
 uv run story doctor          # Validate environment/providers
 pytest -q                    # Run all tests
@@ -28,7 +29,7 @@ MagicStory CLI is a pipeline tool that transforms story ideas into illustrated P
 story new → creates projects/<id>/book.yaml
 story plan → calls text AI → writes artifacts/pages.json (story text + illustration prompts per page)
 story illustrate → calls image AI per page → writes images/page-NN.png
-story render → Jinja2 HTML → WeasyPrint PDF
+story render → Jinja2 HTML → Playwright (Chromium) PDF
 ```
 
 Intermediate artifacts in `artifacts/` enable resume — `illustrate` skips pages that already have images unless `--overwrite`.
@@ -41,7 +42,7 @@ Intermediate artifacts in `artifacts/` enable resume — `illustrate` skips page
 | Core | `src/magicstory_cli/core/` | Pipeline orchestration (story_planner, illustrator, book_renderer, build_pipeline, character_manager, project_scaffold) |
 | Models | `src/magicstory_cli/models/` | Pydantic v2 schemas (config, book, character) |
 | Providers | `src/magicstory_cli/providers/` | Abstract base + concrete implementations (openai_compatible for text/vision, minimax for images) |
-| Rendering | `src/magicstory_cli/rendering/` | Jinja2 HTML + WeasyPrint PDF |
+| Rendering | `src/magicstory_cli/rendering/` | Jinja2 HTML + Playwright PDF |
 | Prompts | `prompts/` | Jinja2 templates for AI prompts — no business logic |
 | Templates | `templates/` | HTML template for book layout |
 
@@ -51,7 +52,7 @@ Global reusable characters in `characters/<id>/` (character.yaml + reference.png
 
 ### Configuration
 
-`config/settings.yaml` defines providers (text/image/vision), render settings, and runtime options. API keys come from environment variables (`TEXT_AI_API_KEY`, `IMAGE_AI_API_KEY`, `VISION_AI_API_KEY`). Page count is strictly 4–16.
+`config/settings.yaml` defines providers (text/image/vision), render settings, and runtime options. API keys come from environment variables (`TEXT_AI_API_KEY`, `IMAGE_AI_API_KEY`, `VISION_AI_API_KEY`). Page count is strictly 4–16. Feature flags in `features:` section control optional behavior (e.g. `enable_reference_image: false` skips passing reference images to the image model, using only text descriptions).
 
 ## Module separation rules
 
