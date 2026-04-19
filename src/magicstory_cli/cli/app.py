@@ -21,8 +21,30 @@ from magicstory_cli.models.config import AppSettings, BookConfig
 from magicstory_cli.providers.factory import build_image_provider
 from magicstory_cli.utils.files import slugify
 
-app = typer.Typer(help="MagicStory CLI for storybook generation.")
-character_app = typer.Typer(help="Manage reusable character references.")
+app = typer.Typer(
+    help=(
+        "MagicStory CLI — 将故事想法转化为插画 PDF 绘本。\n"
+        "\n"
+        "完整流程:\n"
+        "  1. story character new <name> --description '...'   # 创建角色（可选）\n"
+        "  2. story new '书名' --idea '故事想法' --pages N     # 创建项目\n"
+        "  3. story plan --project <dir>                       # 生成故事与插图提示词\n"
+        "  4. story illustrate --project <dir>                 # 生成插图\n"
+        "  5. story render --project <dir>                     # 渲染 HTML + PDF\n"
+        "\n"
+        "或者一步到位:\n"
+        "  story build --project <dir>                         # plan + illustrate + render\n"
+        "\n"
+        "项目结构:\n"
+        "  <project>/book.yaml          # 书籍配置\n"
+        "  <project>/artifacts/pages.json  # 故事内容与插图提示词\n"
+        "  <project>/images/page-NN.png    # 插图\n"
+        "  <project>/render/book.html      # HTML 预览\n"
+        "  <project>/output/book.pdf       # 最终 PDF"
+    ),
+    no_args_is_help=True,
+)
+character_app = typer.Typer(help="管理可复用角色（character new 创建角色，character list 列出已有角色）。")
 app.add_typer(character_app, name="character")
 console = Console()
 PROMPTS_DIR = Path(__file__).resolve().parents[3] / "prompts"
@@ -93,37 +115,39 @@ def _prompt_book_config(
 
 @character_app.command("new")
 def character_new(
-    name: str = typer.Argument(..., help="Character name."),
-    description: str | None = typer.Option(None, "--description", "-d", help="Character appearance description."),
-    style: str | None = typer.Option(None, "--style", "-s", help="Art style override."),
-    settings: Path = typer.Option(Path("config/settings.yaml"), "--settings", help="Path to settings YAML."),
+    name: str = typer.Argument(..., help="角色名称"),
+    description: str = typer.Option(..., "--description", "-d", help="角色外观描述（必填）"),
+    style: str | None = typer.Option(None, "--style", "-s", help="画风覆盖，不传则使用 settings 中的默认画风"),
+    settings: Path = typer.Option(Path("config/settings.yaml"), "--settings", help="配置文件路径"),
 ) -> None:
-    """Create a new character with a reference image."""
+    """创建角色并生成参考图。
+
+    输出: characters/<id>/character.yaml + characters/<id>/reference.png
+    """
     app_settings = resolve_settings(settings)
-    prompt_description = description or typer.prompt("Character description")
 
     char_id = slugify(name)
     char_config = CharacterConfig(
         id=char_id,
         name=name,
-        description=prompt_description,
+        description=description,
         style=style,
     )
 
     characters_dir = resolve_characters_dir(app_settings)
-    with console.status("Generating character reference image and analyzing..."):
+    with console.status("Generating character reference image..."):
         result = create_character(characters_dir, char_config, app_settings, PROMPTS_DIR)
 
     console.print(f"[bold green]Character created:[/] {result.name} ({result.id})")
     console.print(f"  Reference: {characters_dir / result.id / 'reference.png'}")
-    console.print(f"  Analyzed description: {result.analyzed_description[:200]}")
+    console.print(f"  Description: {result.description[:200]}")
 
 
 @character_app.command("list")
 def character_list(
-    settings: Path = typer.Option(Path("config/settings.yaml"), "--settings", help="Path to settings YAML."),
+    settings: Path = typer.Option(Path("config/settings.yaml"), "--settings", help="配置文件路径"),
 ) -> None:
-    """List all available characters."""
+    """列出所有已创建的角色。"""
     app_settings = resolve_settings(settings)
     characters_dir = resolve_characters_dir(app_settings)
     characters = list_characters(characters_dir)
@@ -143,7 +167,7 @@ def character_list(
             char.id,
             char.name,
             char.style or "(default)",
-            (char.analyzed_description or char.description)[:60] + "...",
+            char.description[:60] + "...",
         )
 
     console.print(table)
@@ -154,9 +178,9 @@ def character_list(
 
 @app.command()
 def doctor(
-    settings: Path = typer.Option(Path("config/settings.yaml"), "--settings", help="Path to settings YAML."),
+    settings: Path = typer.Option(Path("config/settings.yaml"), "--settings", help="配置文件路径"),
 ) -> None:
-    """Validate environment and provider configuration."""
+    """检查环境与 provider 配置是否正确。"""
     app_settings = resolve_settings(settings)
 
     table = Table(title="MagicStory Doctor")
@@ -194,18 +218,22 @@ def doctor(
 
 @app.command("new")
 def new_project(
-    title: str | None = typer.Argument(None, help="Book title."),
-    idea: str | None = typer.Option(None, "--idea", help="Core story idea."),
-    style: str | None = typer.Option(None, "--style", help="Illustration style."),
-    page_count: int | None = typer.Option(None, "--pages", min=4, max=16, help="Book page count."),
-    language: str | None = typer.Option(None, "--language", help="Primary book language."),
-    target_age: str | None = typer.Option(None, "--age", help="Target age range."),
-    book_id: str | None = typer.Option(None, "--id", help="Optional custom project id."),
-    characters: list[str] | None = typer.Option(None, "--characters", "-c", help="Character IDs to use."),
-    notes: str | None = typer.Option(None, "--notes", help="Optional author notes."),
-    settings: Path = typer.Option(Path("config/settings.yaml"), "--settings", help="Path to settings YAML."),
+    title: str | None = typer.Argument(None, help="书名"),
+    idea: str | None = typer.Option(None, "--idea", help="故事核心想法（必填，缺失则进入交互模式）"),
+    style: str | None = typer.Option(None, "--style", help="插画风格，如 '水彩画'、'Cartoon'"),
+    page_count: int | None = typer.Option(None, "--pages", min=4, max=16, help="页数，范围 4-16"),
+    language: str | None = typer.Option(None, "--language", help="语言，默认 zh-CN"),
+    target_age: str | None = typer.Option(None, "--age", help="目标年龄段，默认 4-6"),
+    book_id: str | None = typer.Option(None, "--id", help="自定义项目 ID，默认由书名自动生成"),
+    characters: list[str] | None = typer.Option(None, "--characters", "-c", help="关联角色 ID，可多次传"),
+    notes: str | None = typer.Option(None, "--notes", help="补充说明"),
+    settings: Path = typer.Option(Path("config/settings.yaml"), "--settings", help="配置文件路径"),
 ) -> None:
-    """Create a new book project scaffold."""
+    """创建绘本项目。
+
+    必须同时提供 title 和 --idea 才能非交互运行，否则会进入交互提示。
+    输出: projects/<id>/book.yaml
+    """
     app_settings = resolve_settings(settings)
     needs_prompt = (
         title is None
@@ -250,10 +278,14 @@ def new_project(
 
 @app.command()
 def plan(
-    project: Path = typer.Option(..., "--project", help="Path to the book project directory."),
-    settings: Path = typer.Option(Path("config/settings.yaml"), "--settings", help="Path to settings YAML."),
+    project: Path = typer.Option(..., "--project", help="项目目录路径（必填）"),
+    settings: Path = typer.Option(Path("config/settings.yaml"), "--settings", help="配置文件路径"),
 ) -> None:
-    """Generate structured story pages and illustration prompts."""
+    """生成故事内容与每页插图提示词。
+
+    前置条件: 必须先运行 story new 创建项目。
+    输出: <project>/artifacts/pages.json
+    """
     app_settings = resolve_settings(settings)
     book_spec = plan_story(project, app_settings, PROMPTS_DIR)
     paths = resolve_characters_dir(app_settings)
@@ -262,11 +294,16 @@ def plan(
 
 @app.command()
 def illustrate(
-    project: Path = typer.Option(..., "--project", help="Path to the book project directory."),
-    overwrite: bool = typer.Option(False, "--overwrite", help="Regenerate existing page images."),
-    settings: Path = typer.Option(Path("config/settings.yaml"), "--settings", help="Path to settings YAML."),
+    project: Path = typer.Option(..., "--project", help="项目目录路径（必填）"),
+    overwrite: bool = typer.Option(False, "--overwrite", help="强制重新生成已有插图"),
+    settings: Path = typer.Option(Path("config/settings.yaml"), "--settings", help="配置文件路径"),
 ) -> None:
-    """Generate page illustrations from the planned prompts."""
+    """为每页生成插图。
+
+    前置条件: 必须先运行 story plan。
+    已有插图的页面默认跳过，除非使用 --overwrite。
+    输出: <project>/images/page-01.png ~ page-NN.png
+    """
     app_settings = resolve_settings(settings)
     result = illustrate_book(project, app_settings, PROMPTS_DIR, overwrite=overwrite)
     console.print(
@@ -277,10 +314,14 @@ def illustrate(
 
 @app.command()
 def render(
-    project: Path = typer.Option(..., "--project", help="Path to the book project directory."),
-    settings: Path = typer.Option(Path("config/settings.yaml"), "--settings", help="Path to settings YAML."),
+    project: Path = typer.Option(..., "--project", help="项目目录路径（必填）"),
+    settings: Path = typer.Option(Path("config/settings.yaml"), "--settings", help="配置文件路径"),
 ) -> None:
-    """Render a formal picture-book PDF from generated pages and images."""
+    """渲染 HTML 预览与 PDF 文件。
+
+    前置条件: 必须先运行 story illustrate。
+    输出: <project>/render/book.html + <project>/output/book.pdf
+    """
     app_settings = resolve_settings(settings)
     result = render_book(project, app_settings, TEMPLATES_DIR)
     console.print(f"Rendered HTML: {result.html_path}")
@@ -318,7 +359,7 @@ def e2e_test(
         description="一辆小汽车，名字叫 max，是一辆小校车，颜色是鲜艳的橘红色，车顶有一个小小的行李架，前脸有 max 字样，车窗是圆形的，像眼睛一样，车头有一个微笑的格栅，整体造型可爱又充满冒险精神",
         style="卡通风格",
     )
-    with console.status("Generating character reference image and analyzing..."):
+    with console.status("Generating character reference image..."):
         char_result = create_character(characters_dir, char_config, app_settings, PROMPTS_DIR)
     console.print(f"  Character created: {char_result.name} ({char_result.id})")
 
@@ -360,11 +401,15 @@ def e2e_test(
 
 @app.command()
 def build(
-    project: Path = typer.Option(..., "--project", help="Path to the book project directory."),
-    overwrite: bool = typer.Option(False, "--overwrite", help="Regenerate existing page images."),
-    settings: Path = typer.Option(Path("config/settings.yaml"), "--settings", help="Path to settings YAML."),
+    project: Path = typer.Option(..., "--project", help="项目目录路径（必填）"),
+    overwrite: bool = typer.Option(False, "--overwrite", help="强制重新生成已有插图"),
+    settings: Path = typer.Option(Path("config/settings.yaml"), "--settings", help="配置文件路径"),
 ) -> None:
-    """Run the full storybook pipeline: plan, illustrate, then render."""
+    """一键运行完整流程: plan → illustrate → render。
+
+    等同于依次运行 plan、illustrate、render 三个命令。
+    输出: artifacts/pages.json + images/*.png + render/book.html + output/book.pdf
+    """
     app_settings = resolve_settings(settings)
     result = build_book(
         project,
