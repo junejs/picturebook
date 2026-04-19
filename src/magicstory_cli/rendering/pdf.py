@@ -13,7 +13,9 @@ def write_pdf_from_html(html: str, output_path: Path, base_url: Path) -> Path:
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Write HTML to a temp file so Playwright can resolve relative URLs (images, css) via file://
-    with tempfile.NamedTemporaryFile(suffix=".html", dir=base_url, delete=False, encoding="utf-8") as tmp:
+    with tempfile.NamedTemporaryFile(
+        suffix=".html", dir=base_url, delete=False, mode="w", encoding="utf-8"
+    ) as tmp:
         tmp.write(html)
         tmp_path = Path(tmp.name)
 

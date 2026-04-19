@@ -116,6 +116,7 @@ def illustrate_book(
 
     generated_pages = 0
     skipped_pages = 0
+    page_prompts: dict[int, str] = {}
     pending_jobs: list[tuple[int, Path, str, list[Path], int | None]] = []
 
     for page in book_spec.pages:
@@ -154,6 +155,7 @@ def illustrate_book(
             reference_images,
             character_seed,
         ))
+        page_prompts[page.page_number] = illustration_prompt
 
     def _generate_image(job: tuple[int, Path, str, list[Path], int | None]) -> tuple[int, str]:
         page_number, image_output_path, prompt, refs, seed = job
@@ -189,6 +191,7 @@ def illustrate_book(
             "overwrite": overwrite,
             "max_parallel_image_jobs": max_workers,
             "characters_used": character_ids,
+            "page_prompts": {str(k): v for k, v in page_prompts.items()},
         },
     )
     logger.info("Illustration complete: %d generated, %d skipped", generated_pages, skipped_pages)
