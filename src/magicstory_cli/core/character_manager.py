@@ -39,7 +39,7 @@ def create_character(
     prompt_env = create_prompt_environment(prompts_dir)
     gen_prompt = render_prompt(
         prompt_env,
-        "minimax/character_generation.jinja2",
+        "character_generation.jinja2",
         style=style,
         instruction=config.description,
     )

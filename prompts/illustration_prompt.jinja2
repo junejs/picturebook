@@ -1,12 +1,4 @@
-You are a children's picture book illustrator.
-
-Generate a clean, production-ready image prompt for a picture book page.
-
-Style: {{ style }}
-Scene: {{ scene }}
-
-Requirements:
-- vivid and age-appropriate
-- no text or watermark
-- clear focal subject
-- balanced composition for professional picture book layout
+风格：{{ style }}
+场景：{{ illustrationDescription }}
+{% if characterDescription %}角色：{{ characterDescription }}
+{% endif %}要求：{{ style }} 风格，不包含文字水印logo，构图清晰适合绘本排版。

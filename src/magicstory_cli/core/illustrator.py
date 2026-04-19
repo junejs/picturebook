@@ -139,7 +139,7 @@ def illustrate_book(
         try:
             illustration_prompt = render_prompt(
                 prompt_env,
-                "minimax/illustration_generation.jinja2",
+                "illustration_prompt.jinja2",
                 style=book_spec.style,
                 illustrationDescription=page.illustration_prompt,
                 characterDescription=character_description or "",
