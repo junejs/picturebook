@@ -9,6 +9,14 @@
         margin: 0;
       }
 
+      :root {
+        --primary-color: #4a3728;
+        --accent-color: #d4a373;
+        --bg-color: #fefae0;
+        --text-bg: rgba(255, 255, 255, 0.85);
+        --page-shadow: 0 10px 30px rgba(0,0,0,0.1);
+      }
+
       * {
         box-sizing: border-box;
       }
@@ -16,127 +24,173 @@
       html, body {
         margin: 0;
         padding: 0;
-        font-family: "{{ render.body_font }}", sans-serif;
-        background: #f5efe3;
-        color: #1b140f;
-      }
-
-      body {
-        counter-reset: story-page;
+        font-family: "{{ render.body_font }}", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: #e9edc9;
+        color: var(--primary-color);
       }
 
       .sheet {
         position: relative;
         width: 100%;
-        height: 100%;
+        height: 100vh;
         break-after: page;
         overflow: hidden;
-        background:
-          radial-gradient(circle at top left, rgba(255,255,255,0.8), transparent 38%),
-          linear-gradient(180deg, #f6efe1 0%, #ecd9b8 100%);
-      }
-
-      .cover {
+        background: var(--bg-color);
         display: flex;
         flex-direction: column;
-        justify-content: space-between;
-        padding: 12mm;
+      }
+
+      /* Texture Overlay */
+      .sheet::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        opacity: 0.05;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3C%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+      }
+
+      /* Cover Styling */
+      .cover {
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        padding: 20mm;
+        background: linear-gradient(135deg, #faedcd 0%, #fefae0 100%);
+      }
+
+      .cover-content {
+        z-index: 1;
+        max-width: 80%;
       }
 
       .cover-eyebrow {
-        letter-spacing: 0.22em;
-        font-size: 11pt;
+        font-size: 12pt;
+        letter-spacing: 0.3em;
         text-transform: uppercase;
-        opacity: 0.75;
+        color: var(--accent-color);
+        margin-bottom: 8mm;
+        font-weight: 600;
       }
 
       .cover-title {
         font-family: "{{ render.heading_font }}", serif;
-        font-size: 30pt;
-        line-height: 1.2;
-        max-width: 75%;
-        margin: 12mm 0 0;
+        font-size: 42pt;
+        line-height: 1.1;
+        margin: 0 0 10mm;
+        color: var(--primary-color);
       }
 
-      .cover-subtitle {
-        width: 62%;
+      .cover-divider {
+        width: 40mm;
+        height: 1mm;
+        background: var(--accent-color);
+        margin: 8mm auto;
+        border-radius: 1mm;
+      }
+
+      .cover-details {
         font-size: 14pt;
-        line-height: 1.6;
+        line-height: 1.8;
+        color: #606c38;
       }
 
+      /* Story Page Styling */
       .page {
-        padding: 10mm;
+        padding: 0;
       }
 
-      .art-frame {
-        position: relative;
+      .art-container {
+        position: absolute;
+        top: 0;
+        left: 0;
         width: 100%;
-        height: calc(100% - 36mm);
-        border-radius: 8mm;
-        overflow: hidden;
-        background: rgba(255, 255, 255, 0.55);
-        box-shadow: inset 0 0 0 0.7mm rgba(84, 58, 33, 0.15);
+        height: 100%;
       }
 
-      .art-frame img {
+      .art-container img {
         width: 100%;
         height: 100%;
         object-fit: cover;
-        display: block;
       }
 
-      .text-band {
+      /* Text Overlay */
+      .text-box {
         position: absolute;
-        left: 10mm;
-        right: 10mm;
-        bottom: 10mm;
-        min-height: 24mm;
-        padding: 6mm 7mm 7mm;
-        border-radius: 6mm;
-        background: rgba(252, 247, 239, 0.92);
-        box-shadow: 0 1.5mm 5mm rgba(60, 36, 18, 0.12);
-      }
-
-      .page-number {
-        position: absolute;
-        top: 5mm;
-        right: 6mm;
-        font-size: 10pt;
-        letter-spacing: 0.08em;
-        opacity: 0.7;
+        bottom: 12mm;
+        left: 10%;
+        right: 10%;
+        padding: 8mm 10mm;
+        background: var(--text-bg);
+        backdrop-filter: blur(5px);
+        border-radius: 5mm;
+        box-shadow: var(--page-shadow);
+        z-index: 10;
+        border-left: 4px solid var(--accent-color);
       }
 
       .story-text {
         margin: 0;
-        font-size: 13.5pt;
-        line-height: 1.7;
+        font-size: 16pt;
+        line-height: 1.6;
+        text-align: center;
       }
+
+      .page-number {
+        position: absolute;
+        bottom: 5mm;
+        right: 8mm;
+        font-size: 10pt;
+        font-weight: bold;
+        color: rgba(0,0,0,0.3);
+        z-index: 11;
+      }
+
+      /* Corner Decoration */
+      .decoration {
+        position: absolute;
+        width: 30mm;
+        height: 30mm;
+        opacity: 0.1;
+        z-index: 5;
+      }
+      .top-left { top: 10mm; left: 10mm; border-top: 2mm solid var(--primary-color); border-left: 2mm solid var(--primary-color); }
+      .bottom-right { bottom: 10mm; right: 10mm; border-bottom: 2mm solid var(--primary-color); border-right: 2mm solid var(--primary-color); }
+
     </style>
   </head>
   <body>
     {% if render.include_cover %}
     <section class="sheet cover">
-      <div>
-        <div class="cover-eyebrow">MagicStory Picture Book</div>
+      <div class="decoration top-left"></div>
+      <div class="cover-content">
+        <div class="cover-eyebrow">MagicStory Collection</div>
         <h1 class="cover-title">{{ book.title }}</h1>
+        <div class="cover-divider"></div>
+        <div class="cover-details">
+          <p>适合年龄：{{ book.target_age }}</p>
+          <p>风格：{{ book.style }}</p>
+        </div>
       </div>
-      <div class="cover-subtitle">
-        <p>适读年龄 {{ book.target_age }}，共 {{ book.page_count }} 页。</p>
-        <p>绘本风格：{{ book.style }}</p>
-      </div>
+      <div class="decoration bottom-right"></div>
     </section>
     {% endif %}
 
     {% for page in book.pages %}
     <section class="sheet page">
-      <div class="art-frame">
+      <div class="art-container">
         <img src="{{ page.image_path }}" alt="Page {{ page.page_number }}">
       </div>
-      <div class="page-number">{{ "%02d"|format(page.page_number) }}</div>
-      <div class="text-band">
+      
+      <div class="text-box">
         <p class="story-text">{{ page.story_text }}</p>
       </div>
+
+      <div class="page-number">{{ page.page_number }} / {{ book.page_count }}</div>
     </section>
     {% endfor %}
   </body>
-  </html>
+</html>
