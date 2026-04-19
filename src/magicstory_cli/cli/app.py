@@ -179,7 +179,7 @@ def doctor(
         ),
     )
     table.add_row("Page range", "4-16 pages")
-    table.add_row("PDF renderer", "WeasyPrint")
+    table.add_row("PDF renderer", "Playwright (Chromium)")
     table.add_row("Reference images", str(app_settings.features.enable_reference_image).lower())
     table.add_row("Max parallel image jobs", str(app_settings.runtime.max_parallel_image_jobs))
     table.add_row("Log level", app_settings.app.log_level)
