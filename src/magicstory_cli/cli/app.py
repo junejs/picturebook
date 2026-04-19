@@ -18,7 +18,7 @@ from magicstory_cli.core.project_scaffold import create_book_project
 from magicstory_cli.core.story_planner import plan_story
 from magicstory_cli.models.character import CharacterConfig
 from magicstory_cli.models.config import AppSettings, BookConfig
-from magicstory_cli.providers.factory import build_image_provider
+from magicstory_cli.providers.factory import build_image_provider, build_text_provider
 from magicstory_cli.utils.files import slugify
 
 app = typer.Typer(
@@ -35,12 +35,16 @@ app = typer.Typer(
         "或者一步到位:\n"
         "  story build --project <dir>                         # plan + illustrate + render\n"
         "\n"
+        "配置文件:\n"
+        "  按优先级: --settings 指定 > ./config/settings.yaml > ~/.magicstory/settings.yaml\n"
+        "  运行 story config --help 查看完整配置字段说明\n"
+        "\n"
         "项目结构:\n"
-        "  <project>/book.yaml          # 书籍配置\n"
-        "  <project>/artifacts/pages.json  # 故事内容与插图提示词\n"
-        "  <project>/images/page-NN.png    # 插图\n"
-        "  <project>/render/book.html      # HTML 预览\n"
-        "  <project>/output/book.pdf       # 最终 PDF"
+        "  <project>/book.yaml            # 书籍配置\n"
+        "  <project>/artifacts/pages.json # 故事内容与插图提示词\n"
+        "  <project>/images/page-NN.png   # 插图\n"
+        "  <project>/render/book.html     # HTML 预览\n"
+        "  <project>/output/book.pdf      # 最终 PDF"
     ),
     no_args_is_help=True,
 )
@@ -50,6 +54,11 @@ console = Console()
 PROMPTS_DIR = Path(__file__).resolve().parents[3] / "prompts"
 TEMPLATES_DIR = Path(__file__).resolve().parents[3] / "templates"
 
+_DEFAULT_SETTINGS_CANDIDATES = [
+    Path("config/settings.yaml"),
+    Path.home() / ".magicstory" / "settings.yaml",
+]
+
 logging.basicConfig(
     format="%(message)s",
     datefmt="[%X]",
@@ -57,14 +66,24 @@ logging.basicConfig(
 )
 
 
-def resolve_settings(settings_path: Path) -> AppSettings:
-    if not settings_path.exists():
-        raise typer.BadParameter(
-            f"settings file not found: {settings_path}. Copy config/settings.example.yaml first."
-        )
+def resolve_settings(settings_path: Path | None = None) -> tuple[AppSettings, Path]:
+    if settings_path is not None:
+        if not settings_path.exists():
+            raise typer.BadParameter(f"settings file not found: {settings_path}")
+    else:
+        for candidate in _DEFAULT_SETTINGS_CANDIDATES:
+            if candidate.exists():
+                settings_path = candidate
+                break
+        if settings_path is None:
+            raise typer.BadParameter(
+                "未找到配置文件，请通过 --settings 指定，或将配置放在以下位置之一:\n"
+                "  ./config/settings.yaml\n"
+                "  ~/.magicstory/settings.yaml"
+            )
     app_settings = load_settings(settings_path)
     logging.getLogger().setLevel(app_settings.app.log_level.upper())
-    return app_settings
+    return app_settings, settings_path
 
 
 def _prompt_book_config(
@@ -118,13 +137,13 @@ def character_new(
     name: str = typer.Argument(..., help="角色名称"),
     description: str = typer.Option(..., "--description", "-d", help="角色外观描述（必填）"),
     style: str | None = typer.Option(None, "--style", "-s", help="画风覆盖，不传则使用 settings 中的默认画风"),
-    settings: Path = typer.Option(Path("config/settings.yaml"), "--settings", help="配置文件路径"),
+    settings: Path = typer.Option(None, "--settings", help="配置文件路径，默认自动查找 ./config/settings.yaml 或 ~/.magicstory/settings.yaml"),
 ) -> None:
     """创建角色并生成参考图。
 
     输出: characters/<id>/character.yaml + characters/<id>/reference.png
     """
-    app_settings = resolve_settings(settings)
+    app_settings, resolved_settings = resolve_settings(settings)
 
     char_id = slugify(name)
     char_config = CharacterConfig(
@@ -145,10 +164,10 @@ def character_new(
 
 @character_app.command("list")
 def character_list(
-    settings: Path = typer.Option(Path("config/settings.yaml"), "--settings", help="配置文件路径"),
+    settings: Path = typer.Option(None, "--settings", help="配置文件路径，默认自动查找 ./config/settings.yaml 或 ~/.magicstory/settings.yaml"),
 ) -> None:
     """列出所有已创建的角色。"""
-    app_settings = resolve_settings(settings)
+    app_settings, resolved_settings = resolve_settings(settings)
     characters_dir = resolve_characters_dir(app_settings)
     characters = list_characters(characters_dir)
 
@@ -178,16 +197,16 @@ def character_list(
 
 @app.command()
 def doctor(
-    settings: Path = typer.Option(Path("config/settings.yaml"), "--settings", help="配置文件路径"),
+    settings: Path = typer.Option(None, "--settings", help="配置文件路径，默认自动查找 ./config/settings.yaml 或 ~/.magicstory/settings.yaml"),
 ) -> None:
     """检查环境与 provider 配置是否正确。"""
-    app_settings = resolve_settings(settings)
+    app_settings, resolved_settings = resolve_settings(settings)
 
     table = Table(title="MagicStory Doctor")
     table.add_column("Check")
     table.add_column("Result")
 
-    table.add_row("Settings file", f"OK: {settings}")
+    table.add_row("Settings file", f"OK: {resolved_settings}")
     table.add_row("Workspace", str(app_settings.runtime.workspace_dir))
     table.add_row("Characters dir", str(resolve_characters_dir(app_settings)))
     table.add_row("Text provider", f"{app_settings.providers.text.provider} / {app_settings.providers.text.model}")
@@ -216,6 +235,76 @@ def doctor(
     console.print(table)
 
 
+@app.command("config")
+def show_config(
+    settings: Path = typer.Option(None, "--settings", help="配置文件路径，默认自动查找 ./config/settings.yaml 或 ~/.magicstory/settings.yaml"),
+) -> None:
+    """显示当前生效的配置文件内容和来源。
+
+    配置文件位置（按优先级）:
+      1. --settings 指定的路径
+      2. ./config/settings.yaml（当前目录）
+      3. ~/.magicstory/settings.yaml（用户主目录）
+
+    配置文件格式 (YAML):
+
+    providers:
+      text:                              # 文本 AI 配置（用于生成故事和插图提示词）
+        provider: openai-compatible      # provider 类型，当前仅支持 openai-compatible
+        model: gpt-4.1-mini             # 模型名称
+        api_key_env: TEXT_AI_API_KEY    # API Key 对应的环境变量名
+        base_url: null                  # API 地址，null 则使用 provider 默认值
+        timeout_seconds: 300            # 请求超时（秒）
+        max_retries: 2                  # 最大重试次数
+        json_mode: true                 # 是否启用 JSON 输出模式
+      image:                            # 图片 AI 配置（用于生成插图）
+        active: minimax                 # 当前使用的 image provider 名称
+        minimax:                        # minimax provider 配置
+          provider: minimax
+          model: image-01
+          api_key_env: IMAGE_AI_API_KEY
+          base_url: https://api.minimaxi.com
+        volcengine:                     # 火山引擎 provider 配置（可选）
+          provider: volcengine
+          model: doubao-seedream-3.0-t2i
+          api_key_env: VOLCENGINE_API_KEY
+          base_url: https://ark.cn-beijing.volces.com
+
+    render:                             # 渲染配置
+      page_size: 210mmx210mm           # 页面尺寸
+      include_cover: false              # 是否包含封面
+      text_layout: bottom-band          # 文字布局: bottom-band | overlay | full-page-text
+      body_font: Noto Sans SC           # 正文字体
+      heading_font: Noto Serif SC       # 标题字体
+      dpi: 144                          # 渲染分辨率
+
+    runtime:                            # 运行时配置
+      workspace_dir: projects           # 项目工作目录（相对路径或绝对路径）
+      characters_dirname: characters    # 角色目录名
+      artifacts_dirname: artifacts      # 中间产物目录名
+      images_dirname: images            # 插图目录名
+      output_dirname: output            # 输出目录名（PDF 所在）
+      render_dirname: render            # 渲染目录名（HTML 所在）
+      max_parallel_image_jobs: 2        # 图片生成最大并行数（1-8）
+
+    features:                           # 功能开关
+      enable_reference_image: false     # 是否在插图生成时传入角色参考图
+
+    app:                                # 应用配置
+      log_level: info                   # 日志级别: debug | info | warning | error
+      default_style: 水彩画             # 默认插画风格
+    """
+    import yaml as _yaml
+
+    app_settings, resolved_settings = resolve_settings(settings)
+    with open(resolved_settings, "r", encoding="utf-8") as f:
+        raw = _yaml.safe_load(f) or {}
+
+    console.print(f"[bold]配置文件:[/] {resolved_settings}")
+    console.print()
+    console.print(_yaml.dump(raw, allow_unicode=True, default_flow_style=False))
+
+
 @app.command("new")
 def new_project(
     title: str | None = typer.Argument(None, help="书名"),
@@ -227,14 +316,14 @@ def new_project(
     book_id: str | None = typer.Option(None, "--id", help="自定义项目 ID，默认由书名自动生成"),
     characters: list[str] | None = typer.Option(None, "--characters", "-c", help="关联角色 ID，可多次传"),
     notes: str | None = typer.Option(None, "--notes", help="补充说明"),
-    settings: Path = typer.Option(Path("config/settings.yaml"), "--settings", help="配置文件路径"),
+    settings: Path = typer.Option(None, "--settings", help="配置文件路径，默认自动查找 ./config/settings.yaml 或 ~/.magicstory/settings.yaml"),
 ) -> None:
     """创建绘本项目。
 
     必须同时提供 title 和 --idea 才能非交互运行，否则会进入交互提示。
     输出: projects/<id>/book.yaml
     """
-    app_settings = resolve_settings(settings)
+    app_settings, resolved_settings = resolve_settings(settings)
     needs_prompt = (
         title is None
         or idea is None
@@ -279,14 +368,14 @@ def new_project(
 @app.command()
 def plan(
     project: Path = typer.Option(..., "--project", help="项目目录路径（必填）"),
-    settings: Path = typer.Option(Path("config/settings.yaml"), "--settings", help="配置文件路径"),
+    settings: Path = typer.Option(None, "--settings", help="配置文件路径，默认自动查找 ./config/settings.yaml 或 ~/.magicstory/settings.yaml"),
 ) -> None:
     """生成故事内容与每页插图提示词。
 
     前置条件: 必须先运行 story new 创建项目。
     输出: <project>/artifacts/pages.json
     """
-    app_settings = resolve_settings(settings)
+    app_settings, resolved_settings = resolve_settings(settings)
     book_spec = plan_story(project, app_settings, PROMPTS_DIR)
     paths = resolve_characters_dir(app_settings)
     console.print(f"Planned {len(book_spec.pages)} pages for: {book_spec.title}")
@@ -296,7 +385,7 @@ def plan(
 def illustrate(
     project: Path = typer.Option(..., "--project", help="项目目录路径（必填）"),
     overwrite: bool = typer.Option(False, "--overwrite", help="强制重新生成已有插图"),
-    settings: Path = typer.Option(Path("config/settings.yaml"), "--settings", help="配置文件路径"),
+    settings: Path = typer.Option(None, "--settings", help="配置文件路径，默认自动查找 ./config/settings.yaml 或 ~/.magicstory/settings.yaml"),
 ) -> None:
     """为每页生成插图。
 
@@ -304,7 +393,7 @@ def illustrate(
     已有插图的页面默认跳过，除非使用 --overwrite。
     输出: <project>/images/page-01.png ~ page-NN.png
     """
-    app_settings = resolve_settings(settings)
+    app_settings, resolved_settings = resolve_settings(settings)
     result = illustrate_book(project, app_settings, PROMPTS_DIR, overwrite=overwrite)
     console.print(
         f"Illustration complete for: {result.book_spec.title} "
@@ -315,14 +404,14 @@ def illustrate(
 @app.command()
 def render(
     project: Path = typer.Option(..., "--project", help="项目目录路径（必填）"),
-    settings: Path = typer.Option(Path("config/settings.yaml"), "--settings", help="配置文件路径"),
+    settings: Path = typer.Option(None, "--settings", help="配置文件路径，默认自动查找 ./config/settings.yaml 或 ~/.magicstory/settings.yaml"),
 ) -> None:
     """渲染 HTML 预览与 PDF 文件。
 
     前置条件: 必须先运行 story illustrate。
     输出: <project>/render/book.html + <project>/output/book.pdf
     """
-    app_settings = resolve_settings(settings)
+    app_settings, resolved_settings = resolve_settings(settings)
     result = render_book(project, app_settings, TEMPLATES_DIR)
     console.print(f"Rendered HTML: {result.html_path}")
     console.print(f"Rendered PDF: {result.pdf_path}")
@@ -330,10 +419,10 @@ def render(
 
 @app.command("e2e-test")
 def e2e_test(
-    settings: Path = typer.Option(Path("config/settings.yaml"), "--settings", help="Path to settings YAML."),
+    settings: Path = typer.Option(None, "--settings", help="配置文件路径，默认自动查找 ./config/settings.yaml 或 ~/.magicstory/settings.yaml"),
 ) -> None:
     """运行端到端测试：用真实 AI API 生成一本 4 页迷你绘本。"""
-    app_settings = resolve_settings(settings)
+    app_settings, resolved_settings = resolve_settings(settings)
 
     test_id = "e2e-test-little-cat"
     test_title = "小汽车 max 的冒险故事"
@@ -403,14 +492,14 @@ def e2e_test(
 def build(
     project: Path = typer.Option(..., "--project", help="项目目录路径（必填）"),
     overwrite: bool = typer.Option(False, "--overwrite", help="强制重新生成已有插图"),
-    settings: Path = typer.Option(Path("config/settings.yaml"), "--settings", help="配置文件路径"),
+    settings: Path = typer.Option(None, "--settings", help="配置文件路径，默认自动查找 ./config/settings.yaml 或 ~/.magicstory/settings.yaml"),
 ) -> None:
     """一键运行完整流程: plan → illustrate → render。
 
     等同于依次运行 plan、illustrate、render 三个命令。
     输出: artifacts/pages.json + images/*.png + render/book.html + output/book.pdf
     """
-    app_settings = resolve_settings(settings)
+    app_settings, resolved_settings = resolve_settings(settings)
     result = build_book(
         project,
         app_settings,
