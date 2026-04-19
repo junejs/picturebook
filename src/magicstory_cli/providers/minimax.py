@@ -37,7 +37,7 @@ class MiniMaxImageProvider(ImageProvider):
         if not api_key:
             raise RuntimeError(f"missing required environment variable: {api_key_name}")
 
-        base_url = (self.config.base_url or "https://api.minimaxi.com").rstrip("/")
+        base_url = self.config.base_url.rstrip("/")
         payload: dict = {
             "model": self.config.model,
             "prompt": prompt,

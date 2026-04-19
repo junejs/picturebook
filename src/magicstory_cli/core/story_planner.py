@@ -65,13 +65,29 @@ def plan_story(project_dir: Path, settings: AppSettings, prompts_dir: Path) -> B
     )
     system_prompt = render_prompt(prompt_env, "story_plan.jinja2")
 
-    raw_response = build_text_provider(settings).generate_structured_text(
-        prompt=user_prompt,
-        system_prompt=system_prompt,
-    )
-    logger.debug("Raw LLM response length: %d chars", len(raw_response))
+    provider = build_text_provider(settings)
+    max_retries = 3
+    last_error: Exception | None = None
+    payload: PlannedBookPayload | None = None
 
-    payload = _validate_payload(parse_json_object(raw_response), book.page_count)
+    for attempt in range(1, max_retries + 1):
+        raw_response = provider.generate_structured_text(
+            prompt=user_prompt,
+            system_prompt=system_prompt,
+        )
+        logger.debug("Attempt %d/%d: raw LLM response (%d chars)", attempt, max_retries, len(raw_response))
+        try:
+            payload = _validate_payload(parse_json_object(raw_response), book.page_count)
+            break
+        except (ValueError, RuntimeError) as exc:
+            last_error = exc
+            logger.warning("Attempt %d/%d failed: %s", attempt, max_retries, exc)
+            if attempt == max_retries:
+                raise RuntimeError(
+                    f"Failed to get valid JSON after {max_retries} attempts: {last_error}"
+                ) from last_error
+
+    assert payload is not None
     book_spec = BookSpec(
         title=book.title,
         language=book.language,
