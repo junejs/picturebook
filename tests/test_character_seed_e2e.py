@@ -93,19 +93,9 @@ def test_create_character_generates_and_saves_seed(
             path.write_bytes(b"fake-reference")
             return str(path)
 
-    class FakeVisionProvider:
-        def analyze_image(
-            self, image_path: Path, prompt: str, system_prompt: str | None = None
-        ) -> str:
-            return "Blue shirt, short brown hair, smiling."
-
     monkeypatch.setattr(
         "magicstory_cli.core.character_manager.build_image_provider",
         lambda s: FakeImageProvider(),
-    )
-    monkeypatch.setattr(
-        "magicstory_cli.core.character_manager.build_vision_provider",
-        lambda s: FakeVisionProvider(),
     )
 
     config = CharacterConfig(id="xiao-ming", name="Xiao Ming", description="A 6-year-old boy")
@@ -156,19 +146,9 @@ def test_create_character_uses_specific_seed(tmp_path: Path, monkeypatch) -> Non
             path.write_bytes(b"fake-reference")
             return str(path)
 
-    class FakeVisionProvider:
-        def analyze_image(
-            self, image_path: Path, prompt: str, system_prompt: str | None = None
-        ) -> str:
-            return "Green hat, round glasses."
-
     monkeypatch.setattr(
         "magicstory_cli.core.character_manager.build_image_provider",
         lambda s: FakeImageProvider(),
-    )
-    monkeypatch.setattr(
-        "magicstory_cli.core.character_manager.build_vision_provider",
-        lambda s: FakeVisionProvider(),
     )
 
     fixed_seed = 12345678
@@ -210,7 +190,6 @@ character:
   id: hero
   name: Hero
   description: A brave hero
-  analyzed_description: Blue cape, golden crown.
   seed: 99887766
 """.strip(),
         encoding="utf-8",
@@ -319,7 +298,6 @@ character:
   id: {char_id}
   name: {char_id.title()}
   description: A character
-  analyzed_description: Some visual features.
   seed: {seed_val}
 """.strip(),
             encoding="utf-8",

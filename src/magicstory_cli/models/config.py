@@ -63,7 +63,6 @@ class ProvidersConfig(BaseModel):
 
     text: ProviderConfig
     image: ImageProvidersConfig
-    vision: ProviderConfig | None = None
 
 
 class RenderConfig(BaseModel):

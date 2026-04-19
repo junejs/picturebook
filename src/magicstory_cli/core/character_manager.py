@@ -8,7 +8,7 @@ from pydantic import ValidationError
 
 from magicstory_cli.models.character import CharacterConfig
 from magicstory_cli.models.config import AppSettings
-from magicstory_cli.providers.factory import build_image_provider, build_vision_provider
+from magicstory_cli.providers.factory import build_image_provider
 from magicstory_cli.utils.files import ensure_directory, read_json, slugify, write_yaml
 from magicstory_cli.utils.prompts import create_prompt_environment, render_prompt
 
@@ -24,7 +24,6 @@ def create_character(
     config: CharacterConfig,
     settings: AppSettings,
     prompts_dir: Path,
-    language: str = "zh-CN",
 ) -> CharacterConfig:
     char_dir = ensure_directory(_resolve_character_dir(root, config.id))
     logger.info("Creating character: %s in %s", config.name, char_dir)
@@ -49,24 +48,7 @@ def create_character(
     image_provider.generate_image(gen_prompt, reference_path, seed=seed)
     logger.info("Reference image generated: %s", reference_path)
 
-    # Step 2: Analyze reference image with vision model
-    vision_provider = build_vision_provider(settings)
-    analysis_prompt = render_prompt(
-        prompt_env,
-        "character_description_extraction.jinja2",
-        language=language,
-    )
-    system_prompt = render_prompt(prompt_env, "character_description_extraction.jinja2", language=language)
-    # Use just the user-facing portion as the prompt, system prompt sets the role
-    analyzed = vision_provider.analyze_image(
-        image_path=Path(reference_path),
-        prompt="请分析这张角色参考图，提取所有永久视觉特征。",
-        system_prompt=system_prompt,
-    )
-    config.analyzed_description = analyzed.strip()
-    logger.info("Character analyzed_description: %s", config.analyzed_description[:100])
-
-    # Step 3: Save character.yaml
+    # Step 2: Save character.yaml
     write_yaml(
         char_dir / "character.yaml",
         {"character": config.model_dump(mode="json", exclude_none=True)},

@@ -53,14 +53,6 @@ def test_app_settings_accept_model_related_configuration_blocks() -> None:
                         "max_retries": 2,
                     },
                 },
-                "vision": {
-                    "provider": "openai-compatible",
-                    "model": "gpt-4.1-mini",
-                    "api_key_env": "VISION_AI_API_KEY",
-                    "base_url": None,
-                    "timeout_seconds": 300,
-                    "max_retries": 2,
-                },
             },
             "features": {"enable_reference_image": False},
             "app": {"log_level": "info"},
@@ -70,7 +62,6 @@ def test_app_settings_accept_model_related_configuration_blocks() -> None:
     assert settings.providers.text.max_retries == 2
     assert settings.providers.image.active == "minimax"
     assert settings.providers.image.get_active_config().api_key_env == "IMAGE_AI_API_KEY"
-    assert settings.providers.vision is not None
     assert settings.app.log_level == "info"
 
 

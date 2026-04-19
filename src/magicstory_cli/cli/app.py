@@ -18,7 +18,7 @@ from magicstory_cli.core.project_scaffold import create_book_project
 from magicstory_cli.core.story_planner import plan_story
 from magicstory_cli.models.character import CharacterConfig
 from magicstory_cli.models.config import AppSettings, BookConfig
-from magicstory_cli.providers.factory import build_image_provider, build_vision_provider
+from magicstory_cli.providers.factory import build_image_provider
 from magicstory_cli.utils.files import slugify
 
 app = typer.Typer(help="MagicStory CLI for storybook generation.")
@@ -171,14 +171,6 @@ def doctor(
     table.add_row(
         "Image provider", f"{app_settings.providers.image.active} / {active_image.model}"
     )
-    table.add_row(
-        "Vision provider",
-        (
-            f"{app_settings.providers.vision.provider} / {app_settings.providers.vision.model}"
-            if app_settings.providers.vision
-            else "not configured"
-        ),
-    )
     table.add_row("Page range", "4-16 pages")
     table.add_row("PDF renderer", "Playwright (Chromium)")
     table.add_row("Reference images", str(app_settings.features.enable_reference_image).lower())
@@ -196,12 +188,6 @@ def doctor(
         table.add_row("Image provider wiring", "OK")
     except Exception as exc:
         table.add_row("Image provider wiring", f"ERROR: {exc}")
-
-    try:
-        build_vision_provider(app_settings)
-        table.add_row("Vision provider wiring", "OK")
-    except Exception as exc:
-        table.add_row("Vision provider wiring", f"ERROR: {exc}")
 
     console.print(table)
 
@@ -309,7 +295,7 @@ def e2e_test(
     app_settings = resolve_settings(settings)
 
     test_id = "e2e-test-little-cat"
-    test_title = "小猫的冒险"
+    test_title = "小汽车 max 的冒险故事"
     workspace = Path(app_settings.runtime.workspace_dir) / "_e2e_test"
     project_dir = workspace / test_id
 
@@ -328,8 +314,8 @@ def e2e_test(
 
     char_config = CharacterConfig(
         id=test_char_id,
-        name="小橘",
-        description="一只圆滚滚的橘色小猫，大眼睛，耳朵上有一小撮白毛，尾巴末端是白色的",
+        name="max",
+        description="一辆小汽车，名字叫 max，是一辆小校车，颜色是鲜艳的橘红色，车顶有一个小小的行李架，前脸有 max 字样，车窗是圆形的，像眼睛一样，车头有一个微笑的格栅，整体造型可爱又充满冒险精神",
         style="卡通风格",
     )
     with console.status("Generating character reference image and analyzing..."):
@@ -340,7 +326,7 @@ def e2e_test(
     book = BookConfig(
         id=test_id,
         title=test_title,
-        idea="一只橘猫偷偷溜出家门，在花园里遇到了蝴蝶和青蛙，最后安全回家",
+        idea="去爬山，途中遇到暴风雨，最后安全回家",
         language="zh-CN",
         target_age="7-8",
         style="卡通风格",

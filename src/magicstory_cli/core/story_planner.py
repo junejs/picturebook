@@ -45,7 +45,7 @@ def plan_story(project_dir: Path, settings: AppSettings, prompts_dir: Path) -> B
         for char_id in book.characters:
             try:
                 char = load_character(characters_dir, char_id)
-                char_descriptions.append(f"- **{char.name}**: {char.analyzed_description or char.description}")
+                char_descriptions.append(f"- **{char.name}**: {char.description}")
             except FileNotFoundError:
                 logger.warning("Character %s not found in %s, skipping", char_id, characters_dir)
         if char_descriptions:

@@ -9,7 +9,6 @@ class CharacterConfig(BaseModel):
     id: str
     name: str
     description: str
-    analyzed_description: str = ""
     style: str | None = None
     seed: int | None = None
 

@@ -37,7 +37,7 @@ def _build_character_description(characters_dir: Path, character_ids: list[str])
     for char_id in character_ids:
         try:
             char = load_character(characters_dir, char_id)
-            desc = char.analyzed_description or char.description
+            desc = char.description
             descriptions.append(f"{char.name}: {desc}")
         except FileNotFoundError:
             logger.warning("Character %s not found, skipping for description", char_id)
