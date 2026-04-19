@@ -8,12 +8,19 @@ providers:
     max_retries: 2
     # json_mode: true          # set false for LM Studio / servers that don't support response_format
   image:
-    provider: minimax
-    model: image-01
-    api_key_env: IMAGE_AI_API_KEY
-    base_url: https://api.minimaxi.com
-    timeout_seconds: 300
-    max_retries: 2
+    active: minimax
+    minimax:
+      provider: minimax
+      model: image-01
+      api_key_env: IMAGE_AI_API_KEY
+      base_url: https://api.minimaxi.com
+      timeout_seconds: 300
+      max_retries: 2
+    # volcengine:
+    #   provider: volcengine
+    #   model: doubao-seedream-3.0-t2i
+    #   api_key_env: VOLCENGINE_API_KEY
+    #   base_url: https://ark.cn-beijing.volces.com
   vision:
     provider: openai-compatible
     model: gpt-4.1-mini

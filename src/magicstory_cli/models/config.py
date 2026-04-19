@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class ProviderConfig(BaseModel):
@@ -18,11 +18,51 @@ class ProviderConfig(BaseModel):
     json_mode: bool = True
 
 
+class ImageProvidersConfig(BaseModel):
+    """支持多个 image provider 配置，通过 active 字段选择当前使用的 provider。
+
+    格式::
+
+        image:
+          active: volcengine
+          volcengine:
+            model: doubao-seedream-3.0-t2i
+            api_key_env: VOLCENGINE_API_KEY
+          minimax:
+            model: image-01
+            api_key_env: IMAGE_AI_API_KEY
+    """
+
+    active: str
+    providers: dict[str, ProviderConfig]
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_format(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        # 新 YAML 格式：有 active，provider 配置在顶层键中，提取到 providers
+        if "active" in data and "providers" not in data:
+            active = data["active"]
+            providers = {k: v for k, v in data.items() if k != "active"}
+            return {"active": active, "providers": providers}
+        return data
+
+    def get_active_config(self) -> ProviderConfig:
+        config = self.providers.get(self.active)
+        if config is None:
+            raise ValueError(
+                f"active image provider '{self.active}' not found in configured providers: "
+                f"{list(self.providers.keys())}"
+            )
+        return config
+
+
 class ProvidersConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     text: ProviderConfig
-    image: ProviderConfig
+    image: ImageProvidersConfig
     vision: ProviderConfig | None = None
 
 

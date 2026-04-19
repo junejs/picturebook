@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from magicstory_cli.models.config import AppSettings, BookConfig
+from magicstory_cli.models.config import AppSettings, BookConfig, ImageProvidersConfig
 
 
 def test_book_id_is_normalized() -> None:
@@ -43,12 +43,15 @@ def test_app_settings_accept_model_related_configuration_blocks() -> None:
                     "max_retries": 2,
                 },
                 "image": {
-                    "provider": "minimax",
-                    "model": "image-01",
-                    "api_key_env": "IMAGE_AI_API_KEY",
-                    "base_url": "https://api.minimaxi.com",
-                    "timeout_seconds": 300,
-                    "max_retries": 2,
+                    "active": "minimax",
+                    "minimax": {
+                        "provider": "minimax",
+                        "model": "image-01",
+                        "api_key_env": "IMAGE_AI_API_KEY",
+                        "base_url": "https://api.minimaxi.com",
+                        "timeout_seconds": 300,
+                        "max_retries": 2,
+                    },
                 },
                 "vision": {
                     "provider": "openai-compatible",
@@ -65,6 +68,44 @@ def test_app_settings_accept_model_related_configuration_blocks() -> None:
     )
 
     assert settings.providers.text.max_retries == 2
-    assert settings.providers.image.api_key_env == "IMAGE_AI_API_KEY"
+    assert settings.providers.image.active == "minimax"
+    assert settings.providers.image.get_active_config().api_key_env == "IMAGE_AI_API_KEY"
     assert settings.providers.vision is not None
     assert settings.app.log_level == "info"
+
+
+def test_image_providers_multi_provider_format() -> None:
+    """新格式支持多个 provider 配置。"""
+    cfg = ImageProvidersConfig.model_validate(
+        {
+            "active": "volcengine",
+            "volcengine": {
+                "provider": "volcengine",
+                "model": "doubao-seedream-3.0-t2i",
+                "api_key_env": "VOLCENGINE_API_KEY",
+            },
+            "minimax": {
+                "provider": "minimax",
+                "model": "image-01",
+                "api_key_env": "IMAGE_AI_API_KEY",
+            },
+        }
+    )
+    assert cfg.active == "volcengine"
+    assert len(cfg.providers) == 2
+    assert cfg.get_active_config().model == "doubao-seedream-3.0-t2i"
+
+
+def test_image_providers_active_not_found_raises() -> None:
+    """active 指向不存在的 provider 应报错。"""
+    cfg = ImageProvidersConfig.model_validate(
+        {
+            "active": "nonexistent",
+            "minimax": {
+                "provider": "minimax",
+                "model": "image-01",
+            },
+        }
+    )
+    with pytest.raises(ValueError, match="not found"):
+        cfg.get_active_config()

@@ -167,8 +167,9 @@ def doctor(
     table.add_row("Workspace", str(app_settings.runtime.workspace_dir))
     table.add_row("Characters dir", str(resolve_characters_dir(app_settings)))
     table.add_row("Text provider", f"{app_settings.providers.text.provider} / {app_settings.providers.text.model}")
+    active_image = app_settings.providers.image.get_active_config()
     table.add_row(
-        "Image provider", f"{app_settings.providers.image.provider} / {app_settings.providers.image.model}"
+        "Image provider", f"{app_settings.providers.image.active} / {active_image.model}"
     )
     table.add_row(
         "Vision provider",

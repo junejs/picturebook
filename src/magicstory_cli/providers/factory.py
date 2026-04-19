@@ -7,14 +7,18 @@ from magicstory_cli.providers.openai_compatible import (
     OpenAICompatibleTextProvider,
     OpenAICompatibleVisionProvider,
 )
+from magicstory_cli.providers.volcengine import VolcengineImageProvider
 from magicstory_cli.providers.vision_provider import VisionProvider
 
 
 def build_image_provider(settings: AppSettings) -> ImageProvider:
-    provider_name = settings.providers.image.provider.lower()
+    config = settings.providers.image.get_active_config()
+    provider_name = config.provider.lower()
     if provider_name == "minimax":
-        return MiniMaxImageProvider(settings.providers.image)
-    raise ValueError(f"unsupported image provider: {settings.providers.image.provider}")
+        return MiniMaxImageProvider(config)
+    if provider_name == "volcengine":
+        return VolcengineImageProvider(config)
+    raise ValueError(f"unsupported image provider: {config.provider}")
 
 
 def build_text_provider(settings: AppSettings) -> TextProvider:

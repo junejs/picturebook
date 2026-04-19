@@ -410,3 +410,12 @@ pytest -q
 - 插图生成：`src/magicstory_cli/core/illustrator.py`
 - PDF 渲染：`src/magicstory_cli/core/book_renderer.py`
 - 全流程编排：`src/magicstory_cli/core/build_pipeline.py`
+
+## 文档
+
+### image generation
+https://www.volcengine.com/docs/82379/1824121?lang=zh
+
+### 提示词指南
+https://www.volcengine.com/docs/82379/1829186?lang=zh
+
