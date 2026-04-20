@@ -1,26 +1,15 @@
 from __future__ import annotations
 
 import logging
-import os
 
-import httpx
-
-from magicstory_cli.models.config import ProviderConfig
-from magicstory_cli.providers.base import TextProvider
+from magicstory_cli.providers.base import BaseHttpProvider, TextProvider
 
 logger = logging.getLogger(__name__)
 
 
-class OpenAICompatibleTextProvider(TextProvider):
-    def __init__(self, config: ProviderConfig):
-        self.config = config
-
+class OpenAICompatibleTextProvider(BaseHttpProvider, TextProvider):
     def generate_structured_text(self, prompt: str, system_prompt: str | None = None) -> str:
-        api_key_name = self.config.api_key_env or "OPENAI_API_KEY"
-        api_key = os.getenv(api_key_name)
-        if not api_key:
-            raise RuntimeError(f"missing required environment variable: {api_key_name}")
-
+        api_key = self._get_api_key("OPENAI_API_KEY")
         base_url = (self.config.base_url or "https://api.openai.com/v1").rstrip("/")
         payload: dict = {
             "model": self.config.model,
@@ -30,15 +19,9 @@ class OpenAICompatibleTextProvider(TextProvider):
             payload["response_format"] = {"type": "json_object"}
 
         url = f"{base_url}/chat/completions"
-        logger.info(
-            "LLM request: POST %s model=%s messages=%d",
-            url,
-            self.config.model,
-            len(payload["messages"]),
-        )
+        self._log_request(url, messages=len(payload["messages"]))
 
-        transport = httpx.HTTPTransport(retries=self.config.max_retries)
-        with httpx.Client(timeout=self.config.timeout_seconds, transport=transport) as client:
+        with self._http_client() as client:
             response = client.post(
                 url,
                 headers={
@@ -52,15 +35,13 @@ class OpenAICompatibleTextProvider(TextProvider):
 
         usage = data.get("usage")
         if usage:
-            logger.info(
-                "LLM response: status=%s model=%s prompt_tokens=%s completion_tokens=%s",
+            self._log_response(
                 response.status_code,
-                self.config.model,
-                usage.get("prompt_tokens"),
-                usage.get("completion_tokens"),
+                prompt_tokens=usage.get("prompt_tokens"),
+                completion_tokens=usage.get("completion_tokens"),
             )
         else:
-            logger.info("LLM response: status=%s model=%s", response.status_code, self.config.model)
+            self._log_response(response.status_code)
 
         try:
             return data["choices"][0]["message"]["content"]
@@ -74,5 +55,3 @@ class OpenAICompatibleTextProvider(TextProvider):
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
         return messages
-
-

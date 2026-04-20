@@ -40,7 +40,7 @@ def _mock_response(json_data: dict, status_code: int = 200) -> httpx.Response:
 
 class TestVolcengineImageProvider:
     @patch.dict("os.environ", {"VOLCENGINE_API_KEY": "test-key"})
-    @patch("magicstory_cli.providers.volcengine.httpx.Client")
+    @patch("magicstory_cli.providers.base.httpx.Client")
     def test_generate_image_b64_json(self, mock_client_cls):
         img_b64 = base64.b64encode(_fake_png_bytes()).decode()
         mock_response = _mock_response({
@@ -69,7 +69,7 @@ class TestVolcengineImageProvider:
         assert payload["sequential_image_generation"] == "disabled"
 
     @patch.dict("os.environ", {"VOLCENGINE_API_KEY": "test-key"})
-    @patch("magicstory_cli.providers.volcengine.httpx.Client")
+    @patch("magicstory_cli.providers.base.httpx.Client")
     def test_generate_image_url_fallback(self, mock_client_cls):
         """当 response_format 为 url 时，provider 回退下载。"""
         mock_img_response = httpx.Response(
@@ -105,7 +105,7 @@ class TestVolcengineImageProvider:
             provider.generate_image("test", "/tmp/out.png")
 
     @patch.dict("os.environ", {"MY_KEY": "test-key"})
-    @patch("magicstory_cli.providers.volcengine.httpx.Client")
+    @patch("magicstory_cli.providers.base.httpx.Client")
     def test_custom_api_key_env(self, mock_client_cls):
         img_b64 = base64.b64encode(_fake_png_bytes()).decode()
         mock_response = _mock_response({
@@ -126,7 +126,7 @@ class TestVolcengineImageProvider:
         assert headers["Authorization"] == "Bearer test-key"
 
     @patch.dict("os.environ", {"VOLCENGINE_API_KEY": "test-key"})
-    @patch("magicstory_cli.providers.volcengine.httpx.Client")
+    @patch("magicstory_cli.providers.base.httpx.Client")
     def test_seed_included_for_3_0_model(self, mock_client_cls):
         img_b64 = base64.b64encode(_fake_png_bytes()).decode()
         mock_response = _mock_response({
@@ -147,7 +147,7 @@ class TestVolcengineImageProvider:
         assert payload["seed"] == 42
 
     @patch.dict("os.environ", {"VOLCENGINE_API_KEY": "test-key"})
-    @patch("magicstory_cli.providers.volcengine.httpx.Client")
+    @patch("magicstory_cli.providers.base.httpx.Client")
     def test_seed_ignored_for_4_0_model(self, mock_client_cls):
         img_b64 = base64.b64encode(_fake_png_bytes()).decode()
         mock_response = _mock_response({
@@ -168,7 +168,7 @@ class TestVolcengineImageProvider:
         assert "seed" not in payload
 
     @patch.dict("os.environ", {"VOLCENGINE_API_KEY": "test-key"})
-    @patch("magicstory_cli.providers.volcengine.httpx.Client")
+    @patch("magicstory_cli.providers.base.httpx.Client")
     def test_reference_image_single(self, mock_client_cls, tmp_path):
         ref_img = tmp_path / "ref.png"
         ref_img.write_bytes(_fake_png_bytes())
@@ -195,7 +195,7 @@ class TestVolcengineImageProvider:
         assert payload["image"].startswith("data:image/png;base64,")
 
     @patch.dict("os.environ", {"VOLCENGINE_API_KEY": "test-key"})
-    @patch("magicstory_cli.providers.volcengine.httpx.Client")
+    @patch("magicstory_cli.providers.base.httpx.Client")
     def test_reference_image_multiple(self, mock_client_cls, tmp_path):
         ref1 = tmp_path / "ref1.png"
         ref1.write_bytes(_fake_png_bytes())
@@ -222,7 +222,7 @@ class TestVolcengineImageProvider:
         assert len(payload["image"]) == 2
 
     @patch.dict("os.environ", {"VOLCENGINE_API_KEY": "test-key"})
-    @patch("magicstory_cli.providers.volcengine.httpx.Client")
+    @patch("magicstory_cli.providers.base.httpx.Client")
     def test_reference_image_ignored_for_3_0(self, mock_client_cls, tmp_path):
         ref_img = tmp_path / "ref.png"
         ref_img.write_bytes(_fake_png_bytes())
@@ -246,7 +246,7 @@ class TestVolcengineImageProvider:
         assert "image" not in payload
 
     @patch.dict("os.environ", {"VOLCENGINE_API_KEY": "test-key"})
-    @patch("magicstory_cli.providers.volcengine.httpx.Client")
+    @patch("magicstory_cli.providers.base.httpx.Client")
     def test_api_error_raises(self, mock_client_cls):
         mock_response = _mock_response({
             "error": {"code": "InvalidRequest", "message": "bad prompt"},
@@ -264,7 +264,7 @@ class TestVolcengineImageProvider:
             provider.generate_image("test", "/tmp/out.png")
 
     @patch.dict("os.environ", {"VOLCENGINE_API_KEY": "test-key"})
-    @patch("magicstory_cli.providers.volcengine.httpx.Client")
+    @patch("magicstory_cli.providers.base.httpx.Client")
     def test_image_level_error_raises(self, mock_client_cls):
         mock_response = _mock_response({
             "data": [{"error": {"code": "ContentFilter", "message": "blocked"}}],
@@ -282,7 +282,7 @@ class TestVolcengineImageProvider:
             provider.generate_image("test", "/tmp/out.png")
 
     @patch.dict("os.environ", {"VOLCENGINE_API_KEY": "test-key"})
-    @patch("magicstory_cli.providers.volcengine.httpx.Client")
+    @patch("magicstory_cli.providers.base.httpx.Client")
     def test_empty_data_raises(self, mock_client_cls):
         mock_response = _mock_response({"data": []})
         mock_post = MagicMock(return_value=mock_response)

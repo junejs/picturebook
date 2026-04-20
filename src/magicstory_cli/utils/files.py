@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import base64
 import json
+import mimetypes
 import re
 from pathlib import Path
 from typing import Any
@@ -38,3 +40,10 @@ def read_json(path: Path) -> dict[str, Any]:
     if not isinstance(data, dict):
         raise ValueError(f"{path} must contain a JSON object at the top level")
     return data
+
+
+def encode_image_as_data_url(image_path: Path) -> str:
+    mime_type = mimetypes.guess_type(str(image_path))[0] or "image/png"
+    image_bytes = image_path.read_bytes()
+    b64 = base64.b64encode(image_bytes).decode("ascii")
+    return f"data:{mime_type};base64,{b64}"

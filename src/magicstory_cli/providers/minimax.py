@@ -2,29 +2,15 @@ from __future__ import annotations
 
 import base64
 import logging
-import mimetypes
-import os
 from pathlib import Path
 
-import httpx
-
-from magicstory_cli.models.config import ProviderConfig
-from magicstory_cli.providers.base import ImageProvider
+from magicstory_cli.providers.base import BaseHttpProvider, ImageProvider
+from magicstory_cli.utils.files import encode_image_as_data_url
 
 logger = logging.getLogger(__name__)
 
 
-def _encode_image_as_data_url(image_path: Path) -> str:
-    mime_type = mimetypes.guess_type(str(image_path))[0] or "image/png"
-    image_bytes = image_path.read_bytes()
-    b64 = base64.b64encode(image_bytes).decode("ascii")
-    return f"data:{mime_type};base64,{b64}"
-
-
-class MiniMaxImageProvider(ImageProvider):
-    def __init__(self, config: ProviderConfig):
-        self.config = config
-
+class MiniMaxImageProvider(BaseHttpProvider, ImageProvider):
     def generate_image(
         self,
         prompt: str,
@@ -32,11 +18,7 @@ class MiniMaxImageProvider(ImageProvider):
         reference_images: list[Path] | None = None,
         seed: int | None = None,
     ) -> str:
-        api_key_name = self.config.api_key_env or "MINIMAX_API_KEY"
-        api_key = os.getenv(api_key_name)
-        if not api_key:
-            raise RuntimeError(f"missing required environment variable: {api_key_name}")
-
+        api_key = self._get_api_key("MINIMAX_API_KEY")
         base_url = self.config.base_url.rstrip("/")
         payload: dict = {
             "model": self.config.model,
@@ -53,22 +35,16 @@ class MiniMaxImageProvider(ImageProvider):
         if reference_images:
             subject_refs = []
             for ref_path in reference_images:
-                data_url = _encode_image_as_data_url(ref_path)
+                data_url = encode_image_as_data_url(ref_path)
                 subject_refs.append({"type": "character", "image_file": data_url})
             payload["subject_reference"] = subject_refs
             payload["prompt_optimizer"] = False
 
         url = f"{base_url}/v1/image_generation"
-        logger.info(
-            "Image request: POST %s model=%s seed=%s ref_count=%s",
-            url,
-            self.config.model,
-            seed,
-            len(reference_images) if reference_images else 0,
-        )
+        ref_count = len(reference_images) if reference_images else 0
+        self._log_request(url, seed=seed, ref_count=ref_count)
 
-        transport = httpx.HTTPTransport(retries=self.config.max_retries)
-        with httpx.Client(timeout=self.config.timeout_seconds, transport=transport) as client:
+        with self._http_client() as client:
             response = client.post(
                 url,
                 headers={
@@ -80,12 +56,7 @@ class MiniMaxImageProvider(ImageProvider):
             response.raise_for_status()
             data = response.json()
 
-        logger.info(
-            "Image response: status=%s model=%s output=%s",
-            response.status_code,
-            self.config.model,
-            output_path,
-        )
+        self._log_response(response.status_code, output=output_path)
 
         status_code = data.get("base_resp", {}).get("status_code")
         if status_code not in (None, 0):
@@ -96,8 +67,4 @@ class MiniMaxImageProvider(ImageProvider):
         if not image_base64:
             raise RuntimeError("MiniMax did not return image data")
 
-        image_bytes = base64.b64decode(image_base64)
-        output = Path(output_path)
-        output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_bytes(image_bytes)
-        return str(output)
+        return self._write_image(output_path, base64.b64decode(image_base64))
