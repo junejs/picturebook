@@ -25,13 +25,21 @@ def register(app: typer.Typer) -> None:
         name: str = typer.Argument(..., help="角色名称"),
         description: str = typer.Option(..., "--description", "-d", help="角色外观描述（必填）"),
         style: str | None = typer.Option(None, "--style", "-s", help="画风覆盖"),
+        overwrite: bool = typer.Option(False, "--overwrite", help="覆盖已存在的角色"),
         settings: Path = typer.Option(None, "--settings", help="配置文件路径"),
     ) -> None:
         """创建角色并生成参考图。"""
         app_settings, _ = resolve_settings(settings)
         char_id = slugify(name)
-        char_config = CharacterConfig(id=char_id, name=name, description=description, style=style)
         characters_dir = resolve_characters_dir(app_settings)
+
+        char_dir = characters_dir / char_id
+        if char_dir.exists() and not overwrite:
+            console.print(f"[yellow]Character '{name}' ({char_id}) already exists, skipped.[/]")
+            console.print(f"  Use --overwrite to recreate.")
+            return
+
+        char_config = CharacterConfig(id=char_id, name=name, description=description, style=style)
         ctx = PipelineContext.from_settings(characters_dir.parent, app_settings)
         with console.status("Generating character reference image..."):
             result = create_character(characters_dir, char_config, app_settings, ctx.prompts_dir)
