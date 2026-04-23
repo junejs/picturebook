@@ -37,12 +37,6 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
 
-[tool.pytest.ini_options]
-markers = [
-    "e2e: 端到端测试（调用真实 AI API，默认跳过，用 pytest -m e2e 手动运行）",
-]
-addopts = "-m 'not e2e'"
-
 [dependency-groups]
 dev = [
     "pytest>=9.0.3",
