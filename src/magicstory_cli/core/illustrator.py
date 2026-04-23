@@ -8,11 +8,8 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from magicstory_cli.config.loader import load_book_config
-from magicstory_cli.core.character_manager import load_character
-from magicstory_cli.core.paths import (
-    PipelineContext,
-    resolve_character_reference,
-)
+from magicstory_cli.core.character_context import load_character_context
+from magicstory_cli.core.paths import PipelineContext
 from magicstory_cli.models.book import BookSpec
 from magicstory_cli.providers.factory import build_image_provider
 from magicstory_cli.utils.files import read_json, write_json
@@ -26,45 +23,6 @@ class IllustrationResult:
     generated_pages: int
     skipped_pages: int
     book_spec: BookSpec
-
-
-def _build_character_description(characters_dir: Path, character_ids: list[str]) -> str:
-    """Load and concatenate character analyzed_descriptions for prompt injection."""
-    descriptions = []
-    for char_id in character_ids:
-        try:
-            char = load_character(characters_dir, char_id)
-            desc = char.description
-            descriptions.append(f"{char.name}: {desc}")
-        except FileNotFoundError:
-            logger.warning("Character %s not found, skipping for description", char_id)
-    return "; ".join(descriptions)
-
-
-def _get_character_seed(characters_dir: Path, character_ids: list[str]) -> int | None:
-    """Get the seed from the first character that has one."""
-    for char_id in character_ids:
-        try:
-            char = load_character(characters_dir, char_id)
-            if char.seed is not None:
-                return char.seed
-        except FileNotFoundError:
-            logger.warning("Character %s not found, skipping for seed", char_id)
-    return None
-
-
-def _collect_reference_images(
-    characters_dir: Path, character_ids: list[str]
-) -> list[Path]:
-    """Collect reference image paths for all characters."""
-    refs: list[Path] = []
-    for char_id in character_ids:
-        ref_path = resolve_character_reference(characters_dir, char_id)
-        if ref_path.exists():
-            refs.append(ref_path)
-        else:
-            logger.warning("Reference image not found for %s: %s", char_id, ref_path)
-    return refs
 
 
 def illustrate_book(
@@ -83,18 +41,13 @@ def illustrate_book(
 
     # Load book config for character info
     book = load_book_config(paths.book_yaml)
-    characters_dir = ctx.characters_dir
     character_ids = book.characters
 
     # Build character context for prompts
-    character_description = ""
-    reference_images: list[Path] = []
-    character_seed: int | None = None
-    if character_ids:
-        character_description = _build_character_description(characters_dir, character_ids)
-        if ctx.settings.features.enable_reference_image:
-            reference_images = _collect_reference_images(characters_dir, character_ids)
-        character_seed = _get_character_seed(characters_dir, character_ids)
+    char_ctx = load_character_context(ctx, character_ids, include_reference_images=True)
+    character_description = char_ctx.description_text
+    reference_images = char_ctx.reference_images
+    character_seed = char_ctx.seed
 
     # Load illustration prompt template
     prompt_env = create_prompt_environment(ctx.prompts_dir)

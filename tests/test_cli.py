@@ -16,7 +16,7 @@ def test_new_project_prompts_for_missing_fields(tmp_path: Path, monkeypatch) -> 
         captured["settings"] = settings
         return tmp_path / "projects" / book.id
 
-    monkeypatch.setattr("magicstory_cli.cli.app.create_book_project", fake_create_book_project)
+    monkeypatch.setattr("magicstory_cli.cli.commands.project.create_book_project", fake_create_book_project)
 
     runner = CliRunner()
     result = runner.invoke(
@@ -57,7 +57,7 @@ def test_new_project_uses_defaults_without_prompt_when_fully_specified(tmp_path:
         captured["settings"] = settings
         return tmp_path / "projects" / book.id
 
-    monkeypatch.setattr("magicstory_cli.cli.app.create_book_project", fake_create_book_project)
+    monkeypatch.setattr("magicstory_cli.cli.commands.project.create_book_project", fake_create_book_project)
 
     runner = CliRunner()
     result = runner.invoke(

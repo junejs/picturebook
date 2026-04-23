@@ -5,7 +5,7 @@ import logging
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from magicstory_cli.config.loader import load_book_config
-from magicstory_cli.core.character_manager import load_character
+from magicstory_cli.core.character_context import load_character_context
 from magicstory_cli.core.paths import PipelineContext
 from magicstory_cli.models.book import BookSpec, PageSpec
 from magicstory_cli.providers.factory import build_text_provider
@@ -38,16 +38,12 @@ def plan_story(ctx: PipelineContext) -> BookSpec:
     # Load character descriptions if any
     characters_text = ""
     if book.characters:
-        characters_dir = ctx.characters_dir
-        char_descriptions = []
-        for char_id in book.characters:
-            try:
-                char = load_character(characters_dir, char_id)
-                char_descriptions.append(f"- **{char.name}**: {char.description}")
-            except FileNotFoundError:
-                logger.warning("Character %s not found in %s, skipping", char_id, characters_dir)
-        if char_descriptions:
-            characters_text = "\n".join(char_descriptions)
+        char_ctx = load_character_context(ctx, book.characters)
+        if char_ctx.description_text:
+            parts = [d.strip() for d in char_ctx.description_text.split(";") if d.strip()]
+            characters_text = "\n".join(
+                f"- **{p.split(':', 1)[0].strip()}**: {p.split(':', 1)[1].strip()}" for p in parts
+            )
 
     prompt_env = create_prompt_environment(ctx.prompts_dir)
     user_prompt = render_prompt(

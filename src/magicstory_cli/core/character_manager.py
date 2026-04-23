@@ -4,12 +4,13 @@ import logging
 import random
 from pathlib import Path
 
+import yaml
 from pydantic import ValidationError
 
 from magicstory_cli.models.character import CharacterConfig
 from magicstory_cli.models.config import AppSettings
 from magicstory_cli.providers.factory import build_image_provider
-from magicstory_cli.utils.files import ensure_directory, read_json, slugify, write_yaml
+from magicstory_cli.utils.files import ensure_directory, read_json, write_yaml
 from magicstory_cli.utils.prompts import create_prompt_environment, render_prompt
 
 logger = logging.getLogger(__name__)
@@ -91,8 +92,6 @@ def load_character(root: Path, character_id: str) -> CharacterConfig:
 
 
 def _load_yaml_simple(path: Path) -> dict:
-    import yaml
-
     with path.open("r", encoding="utf-8") as handle:
         data = yaml.safe_load(handle) or {}
     if not isinstance(data, dict):
