@@ -85,17 +85,13 @@ def illustrate_book(
             continue
 
         # Build the final illustration prompt with style and character context
-        try:
-            illustration_prompt = render_prompt(
-                prompt_env,
-                "illustration_prompt.jinja2",
-                style=book_spec.style,
-                illustrationDescription=page.illustration_prompt,
-                characterDescription=character_description or "",
-            )
-        except Exception:
-            logger.debug("Failed to render illustration template, using raw prompt")
-            illustration_prompt = page.illustration_prompt
+        illustration_prompt = render_prompt(
+            prompt_env,
+            "illustration_prompt.jinja2",
+            style=book_spec.style,
+            illustrationDescription=page.illustration_prompt,
+            characterDescription=character_description or "",
+        )
 
         pending_jobs.append((
             page.page_number,

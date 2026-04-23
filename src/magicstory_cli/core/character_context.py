@@ -45,10 +45,12 @@ def load_character_context(
 
         if include_reference_images and ctx.settings.features.enable_reference_image:
             ref_path = ctx.characters_dir / char_id / "reference.png"
-            if ref_path.exists():
-                reference_images.append(ref_path)
-            else:
-                logger.warning("Reference image not found for %s: %s", char_id, ref_path)
+            if not ref_path.exists():
+                raise FileNotFoundError(
+                    f"角色 '{char_id}' 的参考图不存在: {ref_path}，"
+                    f"请重新创建角色以生成参考图"
+                )
+            reference_images.append(ref_path)
 
     return CharacterContext(
         description_text="; ".join(descriptions),
