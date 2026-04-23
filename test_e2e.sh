@@ -20,7 +20,7 @@ uv run story character new "max" \
 # 2. 创建项目（输出到 projects/e2e-test-adventure）
 echo "--- 创建项目 ---"
 uv run story new "$BOOK_ID" \
-  --idea "去爬山，途中遇到暴风雨，最后安全回家" \
+  --idea "max 是一辆小汽车，去爬山，途中遇到暴风雨，克服困难，最后安全回家" \
   --style "卡通风格" \
   --pages 4 \
   --age "7-8" \

@@ -5,6 +5,7 @@ from pathlib import Path
 
 from magicstory_cli.config.loader import load_settings
 from magicstory_cli.core.book_renderer import render_book
+from magicstory_cli.core.paths import PipelineContext
 from magicstory_cli.rendering.html_renderer import render_book_html
 from magicstory_cli.models.book import BookSpec, PageSpec
 
@@ -112,7 +113,8 @@ def test_render_book_writes_html_and_pdf_metadata(tmp_path: Path, monkeypatch) -
         fake_write_pdf,
     )
 
-    result = render_book(project_dir, settings, Path("templates"))
+    ctx = PipelineContext.from_settings(project_dir, settings)
+    result = render_book(ctx)
 
     assert result.html_path == render_dir / "book.html"
     assert result.pdf_path == output_dir / "book.pdf"

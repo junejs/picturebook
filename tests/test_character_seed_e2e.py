@@ -8,6 +8,7 @@ from pathlib import Path
 from magicstory_cli.config.loader import load_settings
 from magicstory_cli.core.character_manager import create_character, load_character
 from magicstory_cli.core.illustrator import illustrate_book
+from magicstory_cli.core.paths import PipelineContext
 from magicstory_cli.models.character import CharacterConfig
 
 
@@ -224,9 +225,8 @@ character:
         lambda s: FakeImageProvider(),
     )
 
-    result = illustrate_book(
-        project_dir, settings, Path("prompts"), overwrite=False
-    )
+    ctx = PipelineContext.from_settings(project_dir, settings)
+    result = illustrate_book(ctx, overwrite=False)
 
     assert result.generated_pages == 4
     # All pages should receive the character's seed
@@ -270,9 +270,8 @@ def test_illustrate_book_no_seed_when_no_character(tmp_path: Path, monkeypatch) 
         lambda s: FakeImageProvider(),
     )
 
-    result = illustrate_book(
-        project_dir, settings, Path("prompts"), overwrite=False
-    )
+    ctx = PipelineContext.from_settings(project_dir, settings)
+    result = illustrate_book(ctx, overwrite=False)
 
     assert result.generated_pages == 4
     assert all(s is None for s in received_seeds)
@@ -332,9 +331,8 @@ character:
         lambda s: FakeImageProvider(),
     )
 
-    result = illustrate_book(
-        project_dir, settings, Path("prompts"), overwrite=False
-    )
+    ctx = PipelineContext.from_settings(project_dir, settings)
+    result = illustrate_book(ctx, overwrite=False)
 
     assert result.generated_pages == 4
     # Should use the first character's seed
