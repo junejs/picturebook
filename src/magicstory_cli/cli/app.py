@@ -13,7 +13,7 @@ from magicstory_cli.core.book_renderer import render_book
 from magicstory_cli.core.build_pipeline import build_book
 from magicstory_cli.core.character_manager import create_character, list_characters
 from magicstory_cli.core.illustrator import illustrate_book
-from magicstory_cli.core.paths import resolve_characters_dir
+from magicstory_cli.core.paths import PipelineContext, resolve_characters_dir
 from magicstory_cli.core.project_scaffold import create_book_project
 from magicstory_cli.core.story_planner import plan_story
 from magicstory_cli.models.character import CharacterConfig
@@ -51,8 +51,6 @@ app = typer.Typer(
 character_app = typer.Typer(help="管理可复用角色（character new 创建角色，character list 列出已有角色）。")
 app.add_typer(character_app, name="character")
 console = Console()
-PROMPTS_DIR = Path(__file__).resolve().parents[3] / "prompts"
-TEMPLATES_DIR = Path(__file__).resolve().parents[3] / "templates"
 
 _DEFAULT_SETTINGS_CANDIDATES = [
     Path("config/settings.yaml"),
@@ -155,7 +153,11 @@ def character_new(
 
     characters_dir = resolve_characters_dir(app_settings)
     with console.status("Generating character reference image..."):
-        result = create_character(characters_dir, char_config, app_settings, PROMPTS_DIR)
+        prompts_dir = (
+            app_settings.runtime.prompts_dir
+            or Path(__file__).resolve().parents[3] / "prompts"
+        )
+        result = create_character(characters_dir, char_config, app_settings, prompts_dir)
 
     console.print(f"[bold green]Character created:[/] {result.name} ({result.id})")
     console.print(f"  Reference: {characters_dir / result.id / 'reference.png'}")
@@ -376,7 +378,7 @@ def plan(
     输出: <project>/artifacts/pages.json
     """
     app_settings, resolved_settings = resolve_settings(settings)
-    book_spec = plan_story(project, app_settings, PROMPTS_DIR)
+    book_spec = plan_story(PipelineContext.from_settings(project, app_settings))
     paths = resolve_characters_dir(app_settings)
     console.print(f"Planned {len(book_spec.pages)} pages for: {book_spec.title}")
 
@@ -394,7 +396,7 @@ def illustrate(
     输出: <project>/images/page-01.png ~ page-NN.png
     """
     app_settings, resolved_settings = resolve_settings(settings)
-    result = illustrate_book(project, app_settings, PROMPTS_DIR, overwrite=overwrite)
+    result = illustrate_book(PipelineContext.from_settings(project, app_settings), overwrite=overwrite)
     console.print(
         f"Illustration complete for: {result.book_spec.title} "
         f"(generated={result.generated_pages}, skipped={result.skipped_pages})"
@@ -412,7 +414,7 @@ def render(
     输出: <project>/render/book.html + <project>/output/book.pdf
     """
     app_settings, resolved_settings = resolve_settings(settings)
-    result = render_book(project, app_settings, TEMPLATES_DIR)
+    result = render_book(PipelineContext.from_settings(project, app_settings))
     console.print(f"Rendered HTML: {result.html_path}")
     console.print(f"Rendered PDF: {result.pdf_path}")
 
@@ -449,7 +451,8 @@ def e2e_test(
         style="卡通风格",
     )
     with console.status("Generating character reference image..."):
-        char_result = create_character(characters_dir, char_config, app_settings, PROMPTS_DIR)
+        prompts_dir = app_settings.runtime.prompts_dir or Path(__file__).resolve().parents[3] / "prompts"
+        char_result = create_character(characters_dir, char_config, app_settings, prompts_dir)
     console.print(f"  Character created: {char_result.name} ({char_result.id})")
 
     # Step 2: Create book project with character reference
@@ -472,8 +475,6 @@ def e2e_test(
     result = build_book(
         project_dir,
         app_settings,
-        prompts_dir=PROMPTS_DIR,
-        templates_dir=TEMPLATES_DIR,
         overwrite_images=False,
     )
 
@@ -503,8 +504,6 @@ def build(
     result = build_book(
         project,
         app_settings,
-        prompts_dir=PROMPTS_DIR,
-        templates_dir=TEMPLATES_DIR,
         overwrite_images=overwrite,
     )
     console.print(

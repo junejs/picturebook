@@ -86,6 +86,8 @@ class RuntimeConfig(BaseModel):
     output_dirname: str = "output"
     render_dirname: str = "render"
     max_parallel_image_jobs: int = Field(default=1, ge=1, le=8)
+    prompts_dir: Path | None = None
+    templates_dir: Path | None = None
 
 
 class FeaturesConfig(BaseModel):

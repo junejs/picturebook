@@ -6,6 +6,7 @@ from pathlib import Path
 
 from magicstory_cli.core.book_renderer import RenderResult, render_book
 from magicstory_cli.core.illustrator import IllustrationResult, illustrate_book
+from magicstory_cli.core.paths import PipelineContext
 from magicstory_cli.core.story_planner import plan_story
 from magicstory_cli.models.book import BookSpec
 from magicstory_cli.models.config import AppSettings
@@ -23,20 +24,15 @@ class BuildResult:
 def build_book(
     project_dir: Path,
     settings: AppSettings,
-    prompts_dir: Path,
-    templates_dir: Path,
     overwrite_images: bool = False,
 ) -> BuildResult:
     logger.info("Starting full build pipeline for: %s", project_dir)
 
-    planned_book = plan_story(project_dir, settings, prompts_dir)
-    illustration_result = illustrate_book(
-        project_dir,
-        settings,
-        prompts_dir,
-        overwrite=overwrite_images,
-    )
-    render_result = render_book(project_dir, settings, templates_dir)
+    ctx = PipelineContext.from_settings(project_dir, settings)
+
+    planned_book = plan_story(ctx)
+    illustration_result = illustrate_book(ctx, overwrite=overwrite_images)
+    render_result = render_book(ctx)
 
     logger.info("Build pipeline complete for: %s", planned_book.title)
     return BuildResult(

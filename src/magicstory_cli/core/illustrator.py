@@ -10,13 +10,10 @@ from pydantic import ValidationError
 from magicstory_cli.config.loader import load_book_config
 from magicstory_cli.core.character_manager import load_character
 from magicstory_cli.core.paths import (
-    ProjectPaths,
-    resolve_characters_dir,
+    PipelineContext,
     resolve_character_reference,
-    resolve_project_paths,
 )
 from magicstory_cli.models.book import BookSpec
-from magicstory_cli.models.config import AppSettings
 from magicstory_cli.providers.factory import build_image_provider
 from magicstory_cli.utils.files import read_json, write_json
 from magicstory_cli.utils.prompts import create_prompt_environment, render_prompt
@@ -71,12 +68,10 @@ def _collect_reference_images(
 
 
 def illustrate_book(
-    project_dir: Path,
-    settings: AppSettings,
-    prompts_dir: Path,
+    ctx: PipelineContext,
     overwrite: bool = False,
 ) -> IllustrationResult:
-    paths = resolve_project_paths(project_dir, settings)
+    paths = ctx.paths
     pages_path = paths.artifacts_dir / "pages.json"
     if not pages_path.exists():
         raise RuntimeError("missing artifacts/pages.json. Run `story plan` first.")
@@ -88,7 +83,7 @@ def illustrate_book(
 
     # Load book config for character info
     book = load_book_config(paths.book_yaml)
-    characters_dir = resolve_characters_dir(settings)
+    characters_dir = ctx.characters_dir
     character_ids = book.characters
 
     # Build character context for prompts
@@ -97,15 +92,15 @@ def illustrate_book(
     character_seed: int | None = None
     if character_ids:
         character_description = _build_character_description(characters_dir, character_ids)
-        if settings.features.enable_reference_image:
+        if ctx.settings.features.enable_reference_image:
             reference_images = _collect_reference_images(characters_dir, character_ids)
         character_seed = _get_character_seed(characters_dir, character_ids)
 
     # Load illustration prompt template
-    prompt_env = create_prompt_environment(prompts_dir)
+    prompt_env = create_prompt_environment(ctx.prompts_dir)
 
-    provider = build_image_provider(settings)
-    max_workers = settings.runtime.max_parallel_image_jobs
+    provider = build_image_provider(ctx.settings)
+    max_workers = ctx.settings.runtime.max_parallel_image_jobs
     logger.info(
         "Illustrating book: %s (%d pages, overwrite=%s, max_parallel=%d, characters=%d)",
         book_spec.title,
@@ -122,9 +117,9 @@ def illustrate_book(
 
     for page in book_spec.pages:
         image_relative_path = (
-            Path(settings.runtime.images_dirname) / f"page-{page.page_number:02d}.png"
+            Path(ctx.settings.runtime.images_dirname) / f"page-{page.page_number:02d}.png"
         )
-        image_output_path = project_dir / image_relative_path
+        image_output_path = ctx.paths.project_dir / image_relative_path
 
         if image_output_path.exists() and not overwrite:
             logger.debug(
@@ -163,7 +158,8 @@ def illustrate_book(
         final_path = provider.generate_image(
             prompt, str(image_output_path), reference_images=refs or None, seed=seed
         )
-        return page_number, str(Path(final_path).relative_to(project_dir)).replace("\\", "/")
+        rel = str(Path(final_path).relative_to(ctx.paths.project_dir))
+        return page_number, rel.replace("\\", "/")
 
     if pending_jobs:
         if max_workers == 1 or len(pending_jobs) == 1:

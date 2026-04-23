@@ -6,9 +6,8 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from magicstory_cli.core.paths import resolve_project_paths
+from magicstory_cli.core.paths import PipelineContext
 from magicstory_cli.models.book import BookSpec
-from magicstory_cli.models.config import AppSettings
 from magicstory_cli.rendering.html_renderer import render_book_html
 from magicstory_cli.rendering.pdf import write_pdf_from_html
 from magicstory_cli.utils.files import read_json, write_json
@@ -24,11 +23,9 @@ class RenderResult:
 
 
 def render_book(
-    project_dir: Path,
-    settings: AppSettings,
-    templates_dir: Path,
+    ctx: PipelineContext,
 ) -> RenderResult:
-    paths = resolve_project_paths(project_dir, settings)
+    paths = ctx.paths
     pages_path = paths.artifacts_dir / "pages.json"
     if not pages_path.exists():
         raise RuntimeError("missing artifacts/pages.json. Run `story plan` first.")
@@ -47,9 +44,9 @@ def render_book(
 
     html = render_book_html(
         book=book_spec,
-        render_config=settings.render,
-        project_dir=project_dir,
-        templates_dir=templates_dir,
+        render_config=ctx.settings.render,
+        project_dir=ctx.paths.project_dir,
+        templates_dir=ctx.templates_dir,
     )
     html_path = paths.render_dir / "book.html"
     pdf_path = paths.output_dir / "book.pdf"
@@ -57,7 +54,7 @@ def render_book(
     html_path.write_text(html, encoding="utf-8")
     logger.info("HTML rendered: %s (%d chars)", html_path, len(html))
 
-    write_pdf_from_html(html, pdf_path, base_url=project_dir)
+    write_pdf_from_html(html, pdf_path, base_url=ctx.paths.project_dir)
     logger.info("PDF rendered: %s", pdf_path)
 
     write_json(
@@ -65,8 +62,8 @@ def render_book(
         {
             "title": book_spec.title,
             "page_count": book_spec.page_count,
-            "html_path": str(html_path.relative_to(project_dir)).replace("\\", "/"),
-            "pdf_path": str(pdf_path.relative_to(project_dir)).replace("\\", "/"),
+            "html_path": str(html_path.relative_to(ctx.paths.project_dir)).replace("\\", "/"),
+            "pdf_path": str(pdf_path.relative_to(ctx.paths.project_dir)).replace("\\", "/"),
         },
     )
     return RenderResult(html_path=html_path, pdf_path=pdf_path, book_spec=book_spec)

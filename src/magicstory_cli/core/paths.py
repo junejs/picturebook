@@ -5,6 +5,8 @@ from pathlib import Path
 
 from magicstory_cli.models.config import AppSettings
 
+_PACKAGE_ROOT = Path(__file__).resolve().parents[3]
+
 
 @dataclass(frozen=True)
 class ProjectPaths:
@@ -33,3 +35,26 @@ def resolve_characters_dir(settings: AppSettings) -> Path:
 
 def resolve_character_reference(characters_dir: Path, character_id: str) -> Path:
     return characters_dir / character_id / "reference.png"
+
+
+@dataclass(frozen=True)
+class PipelineContext:
+    settings: AppSettings
+    paths: ProjectPaths
+    prompts_dir: Path
+    templates_dir: Path
+    characters_dir: Path
+
+    @classmethod
+    def from_settings(cls, project_dir: Path, settings: AppSettings) -> PipelineContext:
+        paths = resolve_project_paths(project_dir, settings)
+        characters_dir = resolve_characters_dir(settings)
+        prompts_dir = settings.runtime.prompts_dir or _PACKAGE_ROOT / "prompts"
+        templates_dir = settings.runtime.templates_dir or _PACKAGE_ROOT / "templates"
+        return cls(
+            settings=settings,
+            paths=paths,
+            prompts_dir=prompts_dir,
+            templates_dir=templates_dir,
+            characters_dir=characters_dir,
+        )

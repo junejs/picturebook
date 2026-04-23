@@ -83,8 +83,6 @@ book:
     result = build_book(
         project_dir=project_dir,
         settings=settings,
-        prompts_dir=Path("prompts"),
-        templates_dir=Path("templates"),
         overwrite_images=False,
     )
 

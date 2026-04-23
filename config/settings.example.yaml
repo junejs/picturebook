@@ -37,6 +37,8 @@ runtime:
   output_dirname: output
   render_dirname: render
   max_parallel_image_jobs: 2
+  # prompts_dir: null            # Jinja2 提示词模板目录，null 则使用包内置 prompts/
+  # templates_dir: null          # HTML 模板目录，null 则使用包内置 templates/
 
 features:
   enable_reference_image: false

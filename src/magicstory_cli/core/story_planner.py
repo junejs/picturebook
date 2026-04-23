@@ -1,15 +1,13 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from magicstory_cli.config.loader import load_book_config
 from magicstory_cli.core.character_manager import load_character
-from magicstory_cli.core.paths import resolve_characters_dir, resolve_project_paths
+from magicstory_cli.core.paths import PipelineContext
 from magicstory_cli.models.book import BookSpec, PageSpec
-from magicstory_cli.models.config import AppSettings
 from magicstory_cli.providers.factory import build_text_provider
 from magicstory_cli.utils.files import write_json
 from magicstory_cli.utils.json_tools import parse_json_object
@@ -32,15 +30,15 @@ class PlannedBookPayload(BaseModel):
     pages: list[PlannedPage]
 
 
-def plan_story(project_dir: Path, settings: AppSettings, prompts_dir: Path) -> BookSpec:
-    paths = resolve_project_paths(project_dir, settings)
+def plan_story(ctx: PipelineContext) -> BookSpec:
+    paths = ctx.paths
     book = load_book_config(paths.book_yaml)
     logger.info("Planning story: %s (%d pages)", book.title, book.page_count)
 
     # Load character descriptions if any
     characters_text = ""
     if book.characters:
-        characters_dir = resolve_characters_dir(settings)
+        characters_dir = ctx.characters_dir
         char_descriptions = []
         for char_id in book.characters:
             try:
@@ -51,7 +49,7 @@ def plan_story(project_dir: Path, settings: AppSettings, prompts_dir: Path) -> B
         if char_descriptions:
             characters_text = "\n".join(char_descriptions)
 
-    prompt_env = create_prompt_environment(prompts_dir)
+    prompt_env = create_prompt_environment(ctx.prompts_dir)
     user_prompt = render_prompt(
         prompt_env,
         "page_content.jinja2",
@@ -65,7 +63,7 @@ def plan_story(project_dir: Path, settings: AppSettings, prompts_dir: Path) -> B
     )
     system_prompt = render_prompt(prompt_env, "story_plan.jinja2")
 
-    provider = build_text_provider(settings)
+    provider = build_text_provider(ctx.settings)
     max_retries = 3
     last_error: Exception | None = None
     payload: PlannedBookPayload | None = None
@@ -75,7 +73,10 @@ def plan_story(project_dir: Path, settings: AppSettings, prompts_dir: Path) -> B
             prompt=user_prompt,
             system_prompt=system_prompt,
         )
-        logger.debug("Attempt %d/%d: raw LLM response (%d chars)", attempt, max_retries, len(raw_response))
+        logger.debug(
+            "Attempt %d/%d: raw LLM response (%d chars)",
+            attempt, max_retries, len(raw_response),
+        )
         try:
             payload = _validate_payload(parse_json_object(raw_response), book.page_count)
             break

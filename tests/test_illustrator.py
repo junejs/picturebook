@@ -7,6 +7,7 @@ from pathlib import Path
 
 from magicstory_cli.config.loader import load_settings
 from magicstory_cli.core.illustrator import illustrate_book
+from magicstory_cli.core.paths import PipelineContext
 
 
 def test_illustrate_book_skips_existing_images_and_updates_paths(tmp_path: Path) -> None:
@@ -59,7 +60,8 @@ book:
     )
 
     settings = load_settings(Path("config/settings.example.yaml"))
-    result = illustrate_book(project_dir, settings, Path("prompts"), overwrite=False)
+    ctx = PipelineContext.from_settings(project_dir, settings)
+    result = illustrate_book(ctx, overwrite=False)
 
     assert result.generated_pages == 0
     assert result.skipped_pages == 4
@@ -123,6 +125,7 @@ book:
 
     settings = load_settings(Path("config/settings.example.yaml"))
     settings.runtime.max_parallel_image_jobs = 2
+    ctx = PipelineContext.from_settings(project_dir, settings)
 
     active_count = 0
     max_active_count = 0
@@ -151,7 +154,7 @@ book:
         lambda settings: FakeImageProvider(),
     )
 
-    result = illustrate_book(project_dir, settings, Path("prompts"), overwrite=False)
+    result = illustrate_book(ctx, overwrite=False)
 
     assert result.generated_pages == 4
     assert result.skipped_pages == 0
