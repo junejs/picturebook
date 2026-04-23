@@ -34,8 +34,9 @@ def load_character_context(
         try:
             char = load_character(ctx.characters_dir, char_id)
         except FileNotFoundError:
-            logger.warning("Character %s not found, skipping", char_id)
-            continue
+            raise FileNotFoundError(
+                f"角色 '{char_id}' 未找到，请先运行 story character new 创建角色"
+            ) from None
 
         descriptions.append(f"{char.name}: {char.description}")
 
